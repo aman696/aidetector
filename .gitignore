@@ -36,8 +36,7 @@ generated_images/
 # Papers (PDFs)
 papers/
 
-# Trained models (binary)
-models/*.pkl
+# Trained models — kept in repo (only 16KB) so users can run without training
 
 # Jupyter
 .ipynb_checkpoints/
