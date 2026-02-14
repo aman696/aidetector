@@ -1,0 +1,43 @@
+# Agent / IDE config
+.agent/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Pytest
+.pytest_cache/
+
+# Data (images — too large for GitHub, ~476MB)
+data/
+generated_images/
+
+# Papers (PDFs)
+papers/
+
+# Trained models (binary)
+models/*.pkl
+
+# Jupyter
+.ipynb_checkpoints/

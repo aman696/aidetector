@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Image Detector</title>
+    <meta name="description" content="Detect AI-generated images using FFT frequency analysis, eigenvalue decomposition, and metadata forensics.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card: #1a2035;
+            --bg-card-hover: #1f2847;
+            --border-color: #2a3454;
+            --border-glow: #3b82f680;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+            --accent-cyan: #06b6d4;
+            --real-green: #10b981;
+            --real-green-bg: #10b98120;
+            --ai-red: #ef4444;
+            --ai-red-bg: #ef444420;
+            --uncertain-yellow: #f59e0b;
+            --uncertain-yellow-bg: #f59e0b20;
+            --gradient-primary: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            --gradient-real: linear-gradient(135deg, #10b981, #06b6d4);
+            --gradient-ai: linear-gradient(135deg, #ef4444, #f97316);
+            --shadow-lg: 0 20px 40px rgba(0,0,0,0.4);
+            --shadow-glow: 0 0 30px rgba(59, 130, 246, 0.15);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 3rem 1.5rem 2rem;
+            position: relative;
+        }
+
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 2px;
+            background: var(--gradient-primary);
+            border-radius: 2px;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.02em;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-top: 0.6rem;
+            font-weight: 300;
+        }
+
+        .header .tech-badges {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .tech-badge {
+            font-size: 0.7rem;
+            font-weight: 500;
+            padding: 0.25rem 0.7rem;
+            border-radius: 999px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-muted);
+            letter-spacing: 0.02em;
+        }
+
+        /* Main container */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+        }
+
+        /* Upload Zone */
+        .upload-zone {
+            border: 2px dashed var(--border-color);
+            border-radius: 16px;
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--bg-secondary);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-zone::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 50% 50%, rgba(59,130,246,0.05), transparent 70%);
+            pointer-events: none;
+        }
+
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--accent-blue);
+            background: var(--bg-card);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .upload-zone.dragover {
+            transform: scale(1.01);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.6;
+        }
+
+        .upload-zone h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+        }
+
+        .upload-zone p {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .upload-zone .browse-btn {
+            display: inline-block;
+            margin-top: 1rem;
+            padding: 0.6rem 1.5rem;
+            background: var(--gradient-primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .browse-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+        }
+
+        #fileInput { display: none; }
+
+        /* Preview area */
+        .preview-area {
+            display: none;
+            margin-top: 1.5rem;
+            border-radius: 12px;
+            overflow: hidden;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .preview-area.visible { display: block; }
+
+        .preview-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.8rem 1rem;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .preview-filename {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 60%;
+        }
+
+        .preview-size {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .preview-img-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+            max-height: 350px;
+            overflow: hidden;
+        }
+
+        .preview-img-container img {
+            max-width: 100%;
+            max-height: 320px;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+
+        /* Analyze button */
+        .analyze-btn {
+            display: none;
+            width: 100%;
+            margin-top: 1rem;
+            padding: 0.9rem;
+            background: var(--gradient-primary);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            letter-spacing: 0.01em;
+        }
+
+        .analyze-btn.visible { display: block; }
+
+        .analyze-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(59, 130, 246, 0.35);
+        }
+
+        .analyze-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Loading state */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+            margin-top: 1.5rem;
+        }
+
+        .loading.visible { display: block; }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Results */
+        .results {
+            display: none;
+            margin-top: 1.5rem;
+            animation: fadeUp 0.5s ease;
+        }
+
+        .results.visible { display: block; }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Verdict card */
+        .verdict-card {
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .verdict-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+        }
+
+        .verdict-card.real {
+            background: var(--bg-card);
+            border: 1px solid #10b98140;
+        }
+        .verdict-card.real::before { background: var(--gradient-real); }
+
+        .verdict-card.ai {
+            background: var(--bg-card);
+            border: 1px solid #ef444440;
+        }
+        .verdict-card.ai::before { background: var(--gradient-ai); }
+
+        .verdict-emoji { font-size: 2.5rem; margin-bottom: 0.5rem; }
+
+        .verdict-label {
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+        }
+
+        .verdict-card.real .verdict-label { color: var(--real-green); }
+        .verdict-card.ai .verdict-label { color: var(--ai-red); }
+
+        .verdict-confidence {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-top: 0.3rem;
+        }
+
+        .verdict-meta {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-top: 1rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* Score cards */
+        .scores-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        @media (max-width: 600px) {
+            .scores-grid { grid-template-columns: 1fr; }
+        }
+
+        .score-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.2rem;
+            transition: border-color 0.3s;
+        }
+
+        .score-card:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .score-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.8rem;
+        }
+
+        .score-card-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .score-card-icon {
+            font-size: 1.2rem;
+        }
+
+        /* Progress bar for score */
+        .score-bar-container {
+            width: 100%;
+            height: 6px;
+            background: var(--bg-primary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 0.6rem;
+        }
+
+        .score-bar {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.8s ease;
+        }
+
+        .score-bar.low { background: var(--real-green); }
+        .score-bar.mid { background: var(--uncertain-yellow); }
+        .score-bar.high { background: var(--ai-red); }
+
+        .score-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .score-value.low { color: var(--real-green); }
+        .score-value.mid { color: var(--uncertain-yellow); }
+        .score-value.high { color: var(--ai-red); }
+
+        .score-label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-top: 0.1rem;
+        }
+
+        /* Details toggle */
+        .details-toggle {
+            display: block;
+            width: 100%;
+            margin-top: 1rem;
+            padding: 0.7rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .details-toggle:hover {
+            background: var(--bg-card-hover);
+            color: var(--text-primary);
+        }
+
+        .details-panel {
+            display: none;
+            margin-top: 0.75rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.2rem;
+            animation: fadeUp 0.3s ease;
+        }
+
+        .details-panel.visible { display: block; }
+
+        .details-section h4 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--accent-blue);
+            margin-bottom: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .details-section h4:first-child { margin-top: 0; }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.25rem 0;
+            font-size: 0.8rem;
+        }
+
+        .detail-row .key {
+            color: var(--text-muted);
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.75rem;
+        }
+
+        .detail-row .val {
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.75rem;
+        }
+
+        /* Error */
+        .error-msg {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: var(--ai-red-bg);
+            border: 1px solid #ef444440;
+            border-radius: 10px;
+            color: var(--ai-red);
+            font-size: 0.85rem;
+        }
+
+        .error-msg.visible { display: block; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>AI Image Detector</h1>
+    <p>Detect AI-generated images using signal processing &amp; machine learning</p>
+    <div class="tech-badges">
+        <span class="tech-badge">FFT Analysis</span>
+        <span class="tech-badge">Eigenvalue Decomposition</span>
+        <span class="tech-badge">Metadata Forensics</span>
+        <span class="tech-badge">SVM Classifier</span>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Upload Zone -->
+    <div class="upload-zone" id="uploadZone">
+        <div class="upload-icon">📸</div>
+        <h3>Drop an image here</h3>
+        <p>Supports JPEG, PNG, WebP &bull; Max 10MB</p>
+        <button class="browse-btn" onclick="document.getElementById('fileInput').click()">Browse Files</button>
+        <input type="file" id="fileInput" accept=".jpg,.jpeg,.png,.webp">
+    </div>
+
+    <!-- Preview -->
+    <div class="preview-area" id="previewArea">
+        <div class="preview-header">
+            <span class="preview-filename" id="previewFilename"></span>
+            <span class="preview-size" id="previewSize"></span>
+        </div>
+        <div class="preview-img-container">
+            <img id="previewImg" src="" alt="Preview">
+        </div>
+    </div>
+
+    <!-- Analyze button -->
+    <button class="analyze-btn" id="analyzeBtn" onclick="analyzeImage()">
+        🔍 Analyze Image
+    </button>
+
+    <!-- Loading -->
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Analyzing frequency spectrum, eigenvalues, and metadata…</p>
+    </div>
+
+    <!-- Error -->
+    <div class="error-msg" id="errorMsg"></div>
+
+    <!-- Results -->
+    <div class="results" id="results">
+        <div class="verdict-card" id="verdictCard">
+            <div class="verdict-emoji" id="verdictEmoji"></div>
+            <div class="verdict-label" id="verdictLabel"></div>
+            <div class="verdict-confidence" id="verdictConfidence"></div>
+            <div class="verdict-meta" id="verdictMeta"></div>
+        </div>
+
+        <div class="scores-grid">
+            <div class="score-card" id="fftCard">
+                <div class="score-card-header">
+                    <span class="score-card-title">FFT Analysis</span>
+                    <span class="score-card-icon">📊</span>
+                </div>
+                <div class="score-bar-container">
+                    <div class="score-bar" id="fftBar"></div>
+                </div>
+                <div class="score-value" id="fftScore"></div>
+                <div class="score-label" id="fftLabel"></div>
+            </div>
+
+            <div class="score-card" id="eigenCard">
+                <div class="score-card-header">
+                    <span class="score-card-title">Eigenvalue</span>
+                    <span class="score-card-icon">🧮</span>
+                </div>
+                <div class="score-bar-container">
+                    <div class="score-bar" id="eigenBar"></div>
+                </div>
+                <div class="score-value" id="eigenScore"></div>
+                <div class="score-label" id="eigenLabel"></div>
+            </div>
+
+            <div class="score-card" id="metaCard">
+                <div class="score-card-header">
+                    <span class="score-card-title">Metadata</span>
+                    <span class="score-card-icon">🏷️</span>
+                </div>
+                <div class="score-bar-container">
+                    <div class="score-bar" id="metaBar"></div>
+                </div>
+                <div class="score-value" id="metaScore"></div>
+                <div class="score-label" id="metaLabel"></div>
+            </div>
+        </div>
+
+        <button class="details-toggle" id="detailsToggle" onclick="toggleDetails()">
+            ▼ Show Detailed Features
+        </button>
+
+        <div class="details-panel" id="detailsPanel"></div>
+    </div>
+</div>
+
+<script>
+    let selectedFile = null;
+
+    // --- Drag & Drop ---
+    const zone = document.getElementById('uploadZone');
+    const fileInput = document.getElementById('fileInput');
+
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+    zone.addEventListener('click', e => {
+        if (e.target.tagName !== 'BUTTON') fileInput.click();
+    });
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length) handleFile(fileInput.files[0]);
+    });
+
+    function handleFile(file) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+            showError('Unsupported file type. Use JPEG, PNG, or WebP.');
+            return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+            showError('File too large. Maximum size is 10MB.');
+            return;
+        }
+
+        selectedFile = file;
+        hideError();
+        hide('results');
+
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = e => {
+            document.getElementById('previewImg').src = e.target.result;
+            document.getElementById('previewFilename').textContent = file.name;
+            document.getElementById('previewSize').textContent = formatSize(file.size);
+            show('previewArea');
+            show('analyzeBtn');
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function analyzeImage() {
+        if (!selectedFile) return;
+
+        hide('results');
+        hide('analyzeBtn');
+        hideError();
+        show('loading');
+
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+
+        try {
+            const resp = await fetch('/api/detect', { method: 'POST', body: formData });
+
+            if (!resp.ok) {
+                const err = await resp.json();
+                throw new Error(err.detail || 'Analysis failed');
+            }
+
+            const data = await resp.json();
+            displayResults(data);
+        } catch (err) {
+            showError(err.message);
+        } finally {
+            hide('loading');
+            show('analyzeBtn');
+        }
+    }
+
+    function displayResults(data) {
+        const isAI = data.label === 'AI-Generated';
+        const card = document.getElementById('verdictCard');
+        card.className = 'verdict-card ' + (isAI ? 'ai' : 'real');
+
+        document.getElementById('verdictEmoji').textContent = isAI ? '🤖' : '📷';
+        document.getElementById('verdictLabel').textContent = data.label;
+        document.getElementById('verdictConfidence').textContent = `${data.confidence}% confidence`;
+        document.getElementById('verdictMeta').innerHTML =
+            `<span>Method: ${data.method.toUpperCase()}</span>` +
+            `<span>Time: ${data.analysis_time}s</span>`;
+
+        // Score cards
+        setScore('fft', data.scores.fft);
+        setScore('eigen', data.scores.eigenvalue);
+        setScore('meta', data.scores.metadata);
+
+        // Details panel
+        buildDetails(data.details);
+        hide('detailsPanel');
+        document.getElementById('detailsToggle').textContent = '▼ Show Detailed Features';
+
+        show('results');
+    }
+
+    function setScore(prefix, value) {
+        const pct = Math.round(value * 100);
+        const level = value < 0.4 ? 'low' : value < 0.6 ? 'mid' : 'high';
+        const label = value < 0.4 ? 'Likely Real' : value < 0.6 ? 'Uncertain' : 'Likely AI';
+
+        document.getElementById(prefix + 'Bar').style.width = pct + '%';
+        document.getElementById(prefix + 'Bar').className = 'score-bar ' + level;
+        document.getElementById(prefix + 'Score').textContent = value.toFixed(3);
+        document.getElementById(prefix + 'Score').className = 'score-value ' + level;
+        document.getElementById(prefix + 'Label').textContent = label;
+    }
+
+    function buildDetails(details) {
+        const panel = document.getElementById('detailsPanel');
+        let html = '';
+
+        const sections = {
+            fft: { title: 'FFT Frequency Features', icon: '📊' },
+            eigenvalue: { title: 'Eigenvalue Features', icon: '🧮' },
+            metadata: { title: 'Metadata Features', icon: '🏷️' },
+        };
+
+        for (const [key, config] of Object.entries(sections)) {
+            if (!details[key]) continue;
+            html += `<div class="details-section"><h4>${config.icon} ${config.title}</h4>`;
+            for (const [k, v] of Object.entries(details[key])) {
+                html += `<div class="detail-row"><span class="key">${k}</span><span class="val">${v}</span></div>`;
+            }
+            html += '</div>';
+        }
+
+        panel.innerHTML = html;
+    }
+
+    function toggleDetails() {
+        const panel = document.getElementById('detailsPanel');
+        const btn = document.getElementById('detailsToggle');
+        if (panel.classList.contains('visible')) {
+            panel.classList.remove('visible');
+            btn.textContent = '▼ Show Detailed Features';
+        } else {
+            panel.classList.add('visible');
+            btn.textContent = '▲ Hide Detailed Features';
+        }
+    }
+
+    // --- Helpers ---
+    function show(id) { document.getElementById(id).classList.add('visible'); }
+    function hide(id) { document.getElementById(id).classList.remove('visible'); }
+    function showError(msg) {
+        const el = document.getElementById('errorMsg');
+        el.textContent = '⚠ ' + msg;
+        el.classList.add('visible');
+    }
+    function hideError() { document.getElementById('errorMsg').classList.remove('visible'); }
+    function formatSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+</script>
+
+</body>
+</html>

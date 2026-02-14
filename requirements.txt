@@ -1,0 +1,10 @@
+numpy
+scipy
+opencv-python
+pillow
+scikit-learn
+matplotlib
+pytest
+fastapi
+uvicorn
+pydantic
