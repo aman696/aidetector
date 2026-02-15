@@ -522,6 +522,9 @@
         <span class="tech-badge">FFT Analysis</span>
         <span class="tech-badge">Eigenvalue Decomposition</span>
         <span class="tech-badge">Metadata Forensics</span>
+        <span class="tech-badge">Noise Residuals</span>
+        <span class="tech-badge">DCT Block Stats</span>
+        <span class="tech-badge">ELA Compression</span>
         <span class="tech-badge">SVM Classifier</span>
     </div>
 </div>
@@ -605,6 +608,42 @@
                 </div>
                 <div class="score-value" id="metaScore"></div>
                 <div class="score-label" id="metaLabel"></div>
+            </div>
+
+            <div class="score-card" id="noiseCard">
+                <div class="score-card-header">
+                    <span class="score-card-title">Noise Residual</span>
+                    <span class="score-card-icon">🌫️</span>
+                </div>
+                <div class="score-bar-container">
+                    <div class="score-bar" id="noiseBar"></div>
+                </div>
+                <div class="score-value" id="noiseScore"></div>
+                <div class="score-label" id="noiseLabel"></div>
+            </div>
+
+            <div class="score-card" id="dctCard">
+                <div class="score-card-header">
+                    <span class="score-card-title">DCT Analysis</span>
+                    <span class="score-card-icon">📉</span>
+                </div>
+                <div class="score-bar-container">
+                    <div class="score-bar" id="dctBar"></div>
+                </div>
+                <div class="score-value" id="dctScore"></div>
+                <div class="score-label" id="dctLabel"></div>
+            </div>
+
+            <div class="score-card" id="elaCard">
+                <div class="score-card-header">
+                    <span class="score-card-title">ELA Forensics</span>
+                    <span class="score-card-icon">🕵️</span>
+                </div>
+                <div class="score-bar-container">
+                    <div class="score-bar" id="elaBar"></div>
+                </div>
+                <div class="score-value" id="elaScore"></div>
+                <div class="score-label" id="elaLabel"></div>
             </div>
         </div>
 
@@ -709,6 +748,9 @@
         setScore('fft', data.scores.fft);
         setScore('eigen', data.scores.eigenvalue);
         setScore('meta', data.scores.metadata);
+        setScore('noise', data.scores.noise);
+        setScore('dct', data.scores.dct);
+        setScore('ela', data.scores.ela);
 
         // Details panel
         buildDetails(data.details);
@@ -738,6 +780,9 @@
             fft: { title: 'FFT Frequency Features', icon: '📊' },
             eigenvalue: { title: 'Eigenvalue Features', icon: '🧮' },
             metadata: { title: 'Metadata Features', icon: '🏷️' },
+            noise: { title: 'Noise Residual Features', icon: '🌫️' },
+            dct: { title: 'DCT Block Features', icon: '📉' },
+            ela: { title: 'ELA Features', icon: '🕵️' },
         };
 
         for (const [key, config] of Object.entries(sections)) {

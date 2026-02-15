@@ -40,3 +40,5 @@ papers/
 
 # Jupyter
 .ipynb_checkpoints/
+
+server.log
