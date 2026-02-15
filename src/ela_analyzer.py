@@ -40,7 +40,8 @@ def compute_ela_map(image_path: str, quality: int = 95) -> np.ndarray:
     img_float = img.astype(np.float64)
     
     # Re-save as JPEG at specified quality
-    tmp_path = tempfile.mktemp(suffix='.jpg')
+    with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp_file:
+        tmp_path = tmp_file.name
     try:
         cv2.imwrite(tmp_path, img, [cv2.IMWRITE_JPEG_QUALITY, quality])
         recompressed = cv2.imread(tmp_path).astype(np.float64)
