@@ -26,6 +26,9 @@ from src.classifier import AIDetectorClassifier, FeatureExtractor
 from src.fft_analyzer import fft_score, extract_fft_features
 from src.eigen_analyzer import eigenvalue_score, extract_eigen_features
 from src.metadata_extractor import metadata_score, extract_metadata_features
+from src.noise_analyzer import noise_score, extract_noise_features
+from src.dct_analyzer import dct_score, extract_dct_features
+from src.ela_analyzer import ela_score, extract_ela_features
 
 # --- Config ---
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
@@ -74,6 +77,9 @@ async def detect_image(file: UploadFile):
         fft_features = extract_fft_features(tmp_path)
         eigen_features = extract_eigen_features(tmp_path)
         meta_features = extract_metadata_features(tmp_path)
+        noise_features = extract_noise_features(tmp_path)
+        dct_features = extract_dct_features(tmp_path)
+        ela_features = extract_ela_features(tmp_path)
         
         elapsed = time.time() - start
         
@@ -85,11 +91,17 @@ async def detect_image(file: UploadFile):
                 "fft": round(result["scores"]["fft_score"], 3),
                 "eigenvalue": round(result["scores"]["eigenvalue_score"], 3),
                 "metadata": round(result["scores"]["metadata_score"], 3),
+                "noise": round(result["scores"]["noise_score"], 3),
+                "dct": round(result["scores"]["dct_score"], 3),
+                "ela": round(result["scores"]["ela_score"], 3),
             },
             "details": {
                 "fft": {k: round(v, 4) for k, v in fft_features.items()},
                 "eigenvalue": {k: round(v, 4) for k, v in eigen_features.items()},
                 "metadata": {k: round(v, 1) for k, v in meta_features.items()},
+                "noise": {k: round(v, 4) for k, v in noise_features.items()},
+                "dct": {k: round(v, 4) for k, v in dct_features.items()},
+                "ela": {k: round(v, 4) for k, v in ela_features.items()},
             },
             "analysis_time": round(elapsed, 2),
         }

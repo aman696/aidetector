@@ -1,7 +1,8 @@
 """
 SVM Classifier for AI Image Detection.
 
-Combines features from all three analysis methods (FFT, Eigenvalue, Metadata)
+Combines features from all six analysis methods (FFT, Eigenvalue, Metadata,
+Noise Residual, DCT Block, and ELA)
 and uses a Support Vector Machine (SVM) for final classification.
 
 Pipeline:
@@ -24,34 +25,50 @@ from sklearn.model_selection import cross_val_score
 from src.fft_analyzer import extract_fft_features, fft_score
 from src.eigen_analyzer import extract_eigen_features, eigenvalue_score
 from src.metadata_extractor import extract_metadata_features, metadata_score
+from src.noise_analyzer import extract_noise_features, noise_score
+from src.dct_analyzer import extract_dct_features, dct_score
+from src.ela_analyzer import extract_ela_features, ela_score
 from src.utils import load_labeled_dataset, validate_image_path
 
 
 class FeatureExtractor:
     """
-    Runs all three analysis methods and builds a feature vector.
+    Runs all six analysis methods and builds a feature vector.
     
-    Feature vector structure (14 features total):
+    Feature vector structure (39 features total):
     - FFT features (4): spectral_slope, slope_r_squared, high_freq_ratio, spectral_falloff
     - Eigenvalue features (8): eig_ratio_1_2, eig_ratio_2_3, eig_condition_number, eig_dominance,
                                 patch_ratio_mean, patch_ratio_std, patch_dominance_mean, patch_dominance_std
     - Spectral bands (4): band_low_ratio, band_mid_ratio, band_high_ratio, band_mid_high_ratio
     - Metadata features (6): meta_tag_count, meta_camera_tags, meta_has_camera, meta_has_gps,
                               meta_has_timestamps, meta_has_software
+    - Noise residual features (6): noise_variance, noise_kurtosis, noise_skewness,
+                                    noise_spectral_entropy, noise_autocorrelation, noise_block_var_std
+    - DCT block features (6): dct_ac_energy_ratio, dct_high_freq_energy, dct_coeff_kurtosis,
+                               dct_coeff_variance, dct_dc_variance, dct_zigzag_decay
+    - ELA features (5): ela_mean, ela_variance, ela_max, ela_uniformity, ela_block_inconsistency
     """
     
     # Ordered list of feature names for consistent vector construction
     FEATURE_NAMES = [
-        # FFT features
+        # FFT features (4)
         'spectral_slope', 'slope_r_squared', 'high_freq_ratio', 'spectral_falloff',
-        # Eigenvalue features
+        # Eigenvalue features (8)
         'eig_ratio_1_2', 'eig_ratio_2_3', 'eig_condition_number', 'eig_dominance',
         'patch_ratio_mean', 'patch_ratio_std', 'patch_dominance_mean', 'patch_dominance_std',
-        # Spectral band features
+        # Spectral band features (4)
         'band_low_ratio', 'band_mid_ratio', 'band_high_ratio', 'band_mid_high_ratio',
-        # Metadata features
+        # Metadata features (6)
         'meta_tag_count', 'meta_camera_tags', 'meta_has_camera',
         'meta_has_gps', 'meta_has_timestamps', 'meta_has_software',
+        # Noise residual features (6)
+        'noise_variance', 'noise_kurtosis', 'noise_skewness',
+        'noise_spectral_entropy', 'noise_autocorrelation', 'noise_block_var_std',
+        # DCT block features (6)
+        'dct_ac_energy_ratio', 'dct_high_freq_energy', 'dct_coeff_kurtosis',
+        'dct_coeff_variance', 'dct_dc_variance', 'dct_zigzag_decay',
+        # ELA features (5)
+        'ela_mean', 'ela_variance', 'ela_max', 'ela_uniformity', 'ela_block_inconsistency',
     ]
     
     def extract(self, image_path: str) -> np.ndarray:
@@ -68,12 +85,18 @@ class FeatureExtractor:
         fft_features = extract_fft_features(image_path)
         eigen_features = extract_eigen_features(image_path)
         meta_features = extract_metadata_features(image_path)
+        noise_features = extract_noise_features(image_path)
+        dct_features = extract_dct_features(image_path)
+        ela_features = extract_ela_features(image_path)
         
         # Merge all features
         all_features = {}
         all_features.update(fft_features)
         all_features.update(eigen_features)
         all_features.update(meta_features)
+        all_features.update(noise_features)
+        all_features.update(dct_features)
+        all_features.update(ela_features)
         
         # Build vector in consistent order
         vector = np.array([all_features.get(name, 0.0) for name in self.FEATURE_NAMES])
@@ -117,6 +140,9 @@ class FeatureExtractor:
             'fft_score': fft_score(image_path),
             'eigenvalue_score': eigenvalue_score(image_path),
             'metadata_score': metadata_score(image_path),
+            'noise_score': noise_score(image_path),
+            'dct_score': dct_score(image_path),
+            'ela_score': ela_score(image_path),
         }
 
 
@@ -229,11 +255,14 @@ class AIDetectorClassifier:
             confidence = float(max(probabilities))
             method = "svm"
         else:
-            # Fallback: weighted voting
+            # Fallback: weighted voting (6 analyzers)
             weighted_score = (
-                0.35 * scores['fft_score'] +
-                0.35 * scores['eigenvalue_score'] +
-                0.30 * scores['metadata_score']
+                0.15 * scores['fft_score'] +
+                0.20 * scores['eigenvalue_score'] +
+                0.15 * scores['metadata_score'] +
+                0.20 * scores['noise_score'] +
+                0.20 * scores['dct_score'] +
+                0.10 * scores['ela_score']
             )
             
             label = "AI-Generated" if weighted_score > 0.5 else "Real"
@@ -355,20 +384,32 @@ class AIDetectorClassifier:
         
         # Add insights
         lines.append("")
-        if scores['fft_score'] > 0.6:
-            lines.append("⚠ FFT: High-frequency spectrum shows anomalous drop-off (AI artifact)")
-        elif scores['fft_score'] < 0.4:
-            lines.append("✓ FFT: Frequency spectrum follows natural 1/f power law")
-        
-        if scores['eigenvalue_score'] > 0.6:
-            lines.append("⚠ Eigenvalue: Color/texture statistics deviate from natural images")
-        elif scores['eigenvalue_score'] < 0.4:
-            lines.append("✓ Eigenvalue: Color/texture statistics consistent with real images")
-        
-        if scores['metadata_score'] > 0.6:
-            lines.append("⚠ Metadata: Missing or suspicious EXIF data")
-        elif scores['metadata_score'] < 0.4:
-            lines.append("✓ Metadata: Rich camera EXIF data present")
+        insights = {
+            'fft_score': (
+                "⚠ FFT: High-frequency spectrum shows anomalous drop-off",
+                "✓ FFT: Frequency spectrum follows natural 1/f power law"),
+            'eigenvalue_score': (
+                "⚠ Eigenvalue: Color/texture statistics deviate from natural images",
+                "✓ Eigenvalue: Color/texture statistics consistent with real images"),
+            'metadata_score': (
+                "⚠ Metadata: Missing or suspicious EXIF data",
+                "✓ Metadata: Rich camera EXIF data present"),
+            'noise_score': (
+                "⚠ Noise: Residual noise pattern inconsistent with camera sensor",
+                "✓ Noise: Natural sensor noise pattern detected"),
+            'dct_score': (
+                "⚠ DCT: Block coefficient distribution shows synthetic patterns",
+                "✓ DCT: Coefficient distribution consistent with natural images"),
+            'ela_score': (
+                "⚠ ELA: Compression artifacts suggest non-camera origin",
+                "✓ ELA: Compression history consistent with camera output"),
+        }
+        for name, (ai_msg, real_msg) in insights.items():
+            if name in scores:
+                if scores[name] > 0.6:
+                    lines.append(ai_msg)
+                elif scores[name] < 0.4:
+                    lines.append(real_msg)
         
         return "\n".join(lines)
 

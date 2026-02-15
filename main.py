@@ -20,6 +20,9 @@ from src.classifier import AIDetectorClassifier, classify_image
 from src.fft_analyzer import fft_score, extract_fft_features
 from src.eigen_analyzer import eigenvalue_score, extract_eigen_features
 from src.metadata_extractor import metadata_score, extract_metadata_features
+from src.noise_analyzer import noise_score, extract_noise_features
+from src.dct_analyzer import dct_score, extract_dct_features
+from src.ela_analyzer import ela_score, extract_ela_features
 from src.utils import get_all_image_paths
 
 
@@ -58,8 +61,10 @@ def analyze_single_image(image_path: str, model_path: str = 'models/svm_classifi
 
 
 def train_model(real_dir: str = 'data/real', ai_dir: str = 'data/ai_generated',
+                real_screenshots_dir: str = 'data/screenshots',
+                ai_screenshots_dir: str = 'data/ai_generated_screenshots',
                 model_dir: str = 'models'):
-    """Trains the SVM classifier."""
+    """Trains the SVM classifier with all available data including screenshots."""
     print_banner()
     print("Training SVM Classifier")
     print("-" * 60)
@@ -67,15 +72,60 @@ def train_model(real_dir: str = 'data/real', ai_dir: str = 'data/ai_generated',
     classifier = AIDetectorClassifier()
     
     start_time = time.time()
-    results = classifier.train(real_dir, ai_dir, verbose=True)
+    
+    # Collect all training data
+    from src.utils import load_labeled_dataset, get_all_image_paths
+    import numpy as np
+    
+    paths, labels = load_labeled_dataset(real_dir, ai_dir)
+    
+    # Add screenshot directories if they exist
+    if os.path.isdir(real_screenshots_dir):
+        ss_real = get_all_image_paths(real_screenshots_dir)
+        print(f"  Adding {len(ss_real)} real screenshots from {real_screenshots_dir}")
+        paths.extend(ss_real)
+        labels.extend([0] * len(ss_real))
+    
+    if os.path.isdir(ai_screenshots_dir):
+        ss_ai = get_all_image_paths(ai_screenshots_dir)
+        print(f"  Adding {len(ss_ai)} AI screenshots from {ai_screenshots_dir}")
+        paths.extend(ss_ai)
+        labels.extend([1] * len(ss_ai))
+    
+    labels = np.array(labels)
+    print(f"\nTotal training set: {len(labels)} images")
+    print(f"  Real: {np.sum(labels == 0)} | AI: {np.sum(labels == 1)}")
+    print("\nExtracting features...")
+    
+    # Extract features
+    X = classifier.feature_extractor.extract_batch(paths, verbose=True)
+    
+    # Scale and train
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.model_selection import cross_val_score
+    from sklearn.metrics import accuracy_score
+    
+    X_scaled = classifier.scaler.fit_transform(X)
+    
+    print("\nRunning 5-fold cross-validation...")
+    cv_scores = cross_val_score(classifier.svm, X_scaled, labels, cv=min(5, len(labels) // 4))
+    print(f"  CV Accuracy: {cv_scores.mean():.3f} (+/- {cv_scores.std():.3f})")
+    
+    print("\nTraining SVM on full dataset...")
+    classifier.svm.fit(X_scaled, labels)
+    classifier.is_trained = True
+    
+    train_pred = classifier.svm.predict(X_scaled)
+    train_acc = accuracy_score(labels, train_pred)
+    
     elapsed = time.time() - start_time
     
     # Save the model
     model_path = classifier.save_model(model_dir)
     
     print(f"\nTraining completed in {elapsed:.1f}s")
-    print(f"Cross-validation accuracy: {results['cv_accuracy_mean']:.3f} (+/- {results['cv_accuracy_std']:.3f})")
-    print(f"Training accuracy: {results['train_accuracy']:.3f}")
+    print(f"Cross-validation accuracy: {cv_scores.mean():.3f} (+/- {cv_scores.std():.3f})")
+    print(f"Training accuracy: {train_acc:.3f}")
     print(f"Model saved to: {model_path}")
 
 
