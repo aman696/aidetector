@@ -46,17 +46,25 @@
  
  1.  **Clone the Repository**
      ```bash
-     git clone <repository-url>
+     git clone https://github.com/aman696/aidetector.git
      cd aidetector
      ```
  
  2.  **Set Up Virtual Environment**
-     It is recommended to use a virtual environment to manage dependencies.
-     ```bash
-     python3 -m venv .venv
-     source .venv/bin/activate  # On Windows use: .venv\Scripts\activate
-     ```
- 
+```markdown
+    It is recommended to use a virtual environment to manage dependencies.
+
+    - **Windows**
+      ```bash
+      python -m venv .venv
+      .venv\Scripts\activate
+      ```
+    - **macOS / Linux**
+      ```bash
+      python3 -m venv .venv
+      source .venv/bin/activate
+      ```
+```
  3.  **Install Dependencies**
      ```bash
      pip install -r requirements.txt
