@@ -168,12 +168,112 @@ def _zigzag_order(n: int) -> np.ndarray:
     return np.array(indices)
 
 
+# ---------------------------------------------------------------------------
+# JPEG block boundary consistency (social-media resilient)
+# ---------------------------------------------------------------------------
+
+def jpeg_block_boundary_ratio(image_path: str, block_size: int = 8) -> float:
+    """
+    Ratio of mean absolute pixel differences at JPEG block boundaries vs interior.
+
+    When a real JPEG is re-compressed by social media (Q=75), the original
+    8×8 JPEG grid survives — boundaries remain stronger than interior.
+    AI images are often generated as PNG first, then JPEG-compressed once,
+    producing a *more uniform* discontinuity pattern (ratio closer to 1.0).
+
+    Real re-uploaded JPEG: ratio > 1  (boundaries are stronger)
+    AI PNG → JPEG: ratio ≈ 1  (boundaries not meaningfully stronger)
+
+    Returns:
+        Boundary-to-interior ratio clamped to [0, 5]. Higher = more real-like.
+    """
+    try:
+        validate_image_path(image_path)
+        img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            return 1.0
+
+        img = img.astype(np.float64)
+        h, w = img.shape
+
+        # Horizontal differences (axis=1): shape (h, w-1)
+        hdiff = np.abs(np.diff(img, axis=1))
+        # Columns where (col+1) is a block boundary (col+1) % block_size == 0
+        boundary_cols = np.arange(block_size - 1, w - 1, block_size)  # 7, 15, 23 ...
+        mask_h = np.zeros(w - 1, dtype=bool)
+        mask_h[boundary_cols] = True
+
+        h_boundary = hdiff[:, mask_h].mean() if mask_h.any() else 0.0
+        h_interior = hdiff[:, ~mask_h].mean() if (~mask_h).any() else 0.0
+
+        # Vertical differences (axis=0): shape (h-1, w)
+        vdiff = np.abs(np.diff(img, axis=0))
+        boundary_rows = np.arange(block_size - 1, h - 1, block_size)
+        mask_v = np.zeros(h - 1, dtype=bool)
+        mask_v[boundary_rows] = True
+
+        v_boundary = vdiff[mask_v, :].mean() if mask_v.any() else 0.0
+        v_interior = vdiff[~mask_v, :].mean() if (~mask_v).any() else 0.0
+
+        boundary_mean = (h_boundary + v_boundary) / 2.0
+        interior_mean = (h_interior + v_interior) / 2.0
+
+        if interior_mean < 1e-10:
+            return 1.0
+
+        return float(np.clip(boundary_mean / interior_mean, 0.0, 5.0))
+    except Exception:
+        return 1.0
+
+
+def jpeg_boundary_variance_ratio(image_path: str, block_size: int = 8) -> float:
+    """
+    Ratio of variance of boundary differences to variance of interior differences.
+
+    A high variance ratio indicates the boundary structure is more
+    irregular (as in real re-compressed JPEGs with their original grid).
+    AI images show more uniform discontinuity.
+
+    Returns:
+        Variance ratio clamped to [0, 10].
+    """
+    try:
+        validate_image_path(image_path)
+        img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            return 1.0
+
+        img = img.astype(np.float64)
+        h, w = img.shape
+
+        hdiff = np.abs(np.diff(img, axis=1))
+        boundary_cols = np.arange(block_size - 1, w - 1, block_size)
+        mask_h = np.zeros(w - 1, dtype=bool)
+        mask_h[boundary_cols] = True
+
+        b_vals = hdiff[:, mask_h].flatten() if mask_h.any() else np.array([])
+        i_vals = hdiff[:, ~mask_h].flatten() if (~mask_h).any() else np.array([])
+
+        if len(b_vals) < 2 or len(i_vals) < 2:
+            return 1.0
+
+        var_b = np.var(b_vals)
+        var_i = np.var(i_vals)
+
+        if var_i < 1e-10:
+            return 1.0
+
+        return float(np.clip(var_b / var_i, 0.0, 10.0))
+    except Exception:
+        return 1.0
+
+
 def extract_dct_features(image_path: str) -> Dict[str, float]:
     """
     Extracts all DCT-based features from an image.
-    
+
     Returns:
-        Dict with 6 features.
+        Dict with 8 features (6 original + 2 JPEG boundary).
     """
     try:
         dct_blocks = block_dct(image_path)
@@ -185,8 +285,13 @@ def extract_dct_features(image_path: str) -> Dict[str, float]:
             'dct_coeff_variance': 0.0,
             'dct_dc_variance': 0.0,
             'dct_zigzag_decay': 0.0,
+            'dct_boundary_ratio': 1.0,
+            'dct_boundary_var_ratio': 1.0,
         }
-    
+
+    boundary_ratio = jpeg_block_boundary_ratio(image_path)
+    boundary_var_ratio = jpeg_boundary_variance_ratio(image_path)
+
     return {
         'dct_ac_energy_ratio': dct_ac_energy_ratio(dct_blocks),
         'dct_high_freq_energy': dct_high_freq_energy(dct_blocks),
@@ -194,6 +299,8 @@ def extract_dct_features(image_path: str) -> Dict[str, float]:
         'dct_coeff_variance': dct_coefficient_variance(dct_blocks),
         'dct_dc_variance': dct_block_dc_variance(dct_blocks),
         'dct_zigzag_decay': dct_zigzag_energy_decay(dct_blocks),
+        'dct_boundary_ratio': boundary_ratio,
+        'dct_boundary_var_ratio': boundary_var_ratio,
     }
 
 

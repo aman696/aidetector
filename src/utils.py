@@ -5,6 +5,7 @@ Utility functions for image loading, preprocessing, and dataset management.
 import os
 import cv2
 import numpy as np
+import tempfile
 from typing import List, Tuple, Optional
 
 
@@ -149,3 +150,104 @@ def load_labeled_dataset(real_dir: str, ai_dir: str) -> Tuple[List[str], List[in
     labels = [0] * len(real_paths) + [1] * len(ai_paths)
     
     return paths, labels
+
+
+def augment_dataset_with_jpeg(
+    paths: List[str],
+    labels: List[int],
+    qualities: Tuple[int, ...] = (70, 80),
+    scale_factor: float = 0.75,
+) -> Tuple[List[str], List[int], List[str]]:
+    """
+    Augments a training dataset by adding JPEG-recompressed and
+    downscaled copies of each image.
+
+    This implements the ITW-SM (arXiv:2507.10236) finding that training
+    data composition — specifically including recompressed variants — is the
+    most effective way to improve in-the-wild detection accuracy.
+
+    For each image the function creates:
+        - One copy recompressed at each quality level in `qualities`
+        - One copy downscaled to `scale_factor` × original size (then
+          saved as JPEG Q=85) to simulate low-resolution social-media crops
+
+    All copies carry the same label as the original.
+    Copies are written to a temporary directory managed by `tempfile`;
+    call `cleanup_augmented_files(tmp_paths)` when training finishes.
+
+    Args:
+        paths:        List of original image paths (training set).
+        labels:       Corresponding labels (0 = real, 1 = AI).
+        qualities:    JPEG quality levels to use for recompression.
+        scale_factor: Downscale factor for the resize augmentation.
+
+    Returns:
+        (aug_paths, aug_labels, tmp_paths)
+            aug_paths   – original + augmented paths (len = original × (1 + len(qualities) + 1))
+            aug_labels  – corresponding labels
+            tmp_paths   – paths of temp files to delete after training
+    """
+    aug_paths: List[str] = list(paths)
+    aug_labels: List[int] = list(labels)
+    tmp_paths: List[str] = []
+
+    tmp_dir = tempfile.mkdtemp(prefix='aidet_aug_')
+
+    for idx, (src, label) in enumerate(zip(paths, labels)):
+        try:
+            img = cv2.imread(src)
+            if img is None:
+                continue
+
+            base = f"aug_{idx}"
+
+            # JPEG recompression copies
+            for q in qualities:
+                dst = os.path.join(tmp_dir, f"{base}_q{q}.jpg")
+                cv2.imwrite(dst, img, [cv2.IMWRITE_JPEG_QUALITY, q])
+                aug_paths.append(dst)
+                aug_labels.append(label)
+                tmp_paths.append(dst)
+
+            # Downscaled copy
+            h, w = img.shape[:2]
+            small = cv2.resize(
+                img,
+                (max(64, int(w * scale_factor)), max(64, int(h * scale_factor))),
+                interpolation=cv2.INTER_AREA,
+            )
+            dst_small = os.path.join(tmp_dir, f"{base}_small.jpg")
+            cv2.imwrite(dst_small, small, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            aug_paths.append(dst_small)
+            aug_labels.append(label)
+            tmp_paths.append(dst_small)
+
+        except Exception:
+            continue  # Skip any image that fails to augment
+
+    return aug_paths, aug_labels, tmp_paths
+
+
+def cleanup_augmented_files(tmp_paths: List[str]) -> None:
+    """
+    Deletes temporary augmented image files created by augment_dataset_with_jpeg.
+
+    Args:
+        tmp_paths: List of file paths to delete (as returned by augment_dataset_with_jpeg).
+    """
+    for p in tmp_paths:
+        try:
+            if os.path.exists(p):
+                os.remove(p)
+        except Exception:
+            pass
+
+    # Also try to remove the parent temp directory if empty
+    if tmp_paths:
+        try:
+            parent = os.path.dirname(tmp_paths[0])
+            if os.path.isdir(parent) and not os.listdir(parent):
+                os.rmdir(parent)
+        except Exception:
+            pass
+

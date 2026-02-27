@@ -44,11 +44,11 @@ class TestFeatureExtractor:
         assert isinstance(vec, np.ndarray)
 
     def test_extract_vector_length(self):
-        """Feature vector should have 22 elements (4 FFT + 12 eigen + 6 metadata)."""
+        """Feature vector should have 69 elements (4+8+4+6+11+8+5+5+3+15)."""
         fe = FeatureExtractor()
         vec = fe.extract(REAL_IMG)
         assert len(vec) == len(FeatureExtractor.FEATURE_NAMES)
-        assert len(vec) == 22
+        assert len(vec) == 69
 
     def test_extract_no_nans(self):
         fe = FeatureExtractor()
@@ -56,15 +56,25 @@ class TestFeatureExtractor:
         assert not np.any(np.isnan(vec)), "Feature vector contains NaN"
 
     def test_extract_deterministic(self):
+        """Feature vector should be approximately deterministic.
+        RIGID drift features use random noise, so we allow small tolerance."""
         fe = FeatureExtractor()
         v1 = fe.extract(REAL_IMG)
         v2 = fe.extract(REAL_IMG)
-        np.testing.assert_array_equal(v1, v2)
+        # Base 54 features (non-drift) must be exactly equal
+        np.testing.assert_array_equal(v1[:54], v2[:54])
+        # Drift features (last 15) may differ slightly due to random noise perturbation
+        assert np.allclose(v1[54:], v2[54:], atol=5.0), \
+            "Drift features differ too much between two calls"
 
     def test_extract_individual_scores_keys(self):
         fe = FeatureExtractor()
         scores = fe.extract_individual_scores(REAL_IMG)
-        assert set(scores.keys()) == {'fft_score', 'eigenvalue_score', 'metadata_score'}
+        assert set(scores.keys()) == {
+            'fft_score', 'eigenvalue_score', 'metadata_score',
+            'noise_score', 'dct_score', 'ela_score',
+            'gradient_score', 'patchcraft_score',
+        }
 
     def test_extract_individual_scores_range(self):
         fe = FeatureExtractor()
@@ -88,8 +98,16 @@ class TestAIDetectorClassifierVoting:
     def test_predict_output_keys(self):
         clf = AIDetectorClassifier()
         result = clf.predict(REAL_IMG)
-        expected = {'label', 'confidence', 'scores', 'method', 'explanation'}
-        assert result.keys() == expected
+        # These keys must always be present
+        required = {'label', 'confidence', 'scores', 'method', 'explanation'}
+        assert required <= result.keys(), \
+            f"Missing required keys: {required - result.keys()}"
+        # screenshot_warning / screenshot_confidence are optional (only added when
+        # the image triggers the screenshot detector heuristics)
+        allowed_extra = {'screenshot_warning', 'screenshot_confidence'}
+        unexpected = result.keys() - required - allowed_extra
+        assert not unexpected, f"Unexpected extra keys in result: {unexpected}"
+
 
     def test_predict_label_type(self):
         clf = AIDetectorClassifier()

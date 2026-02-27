@@ -59,6 +59,10 @@ def analyze_single_image(image_path: str, model_path: str = 'models/svm_classifi
     
     print(f"\nAnalysis completed in {elapsed:.2f}s")
 
+    # Screenshot warning
+    if result.get('screenshot_warning'):
+        print(f"\n{result['screenshot_warning']}")
+
 
 def train_model(real_dir: str = 'data/real', ai_dir: str = 'data/ai_generated',
                 real_screenshots_dir: str = 'data/screenshots',
@@ -73,60 +77,122 @@ def train_model(real_dir: str = 'data/real', ai_dir: str = 'data/ai_generated',
     
     start_time = time.time()
     
+    # Try to use GPU SVM via cuML (RAPIDS), fall back to sklearn
+    import os as _os
+    use_gpu = False
+    try:
+        from cuml.svm import SVC as CumlSVC
+        import cupy as cp
+        classifier.svm = CumlSVC(kernel='rbf', probability=True, C=10.0, gamma='scale')
+        use_gpu = True
+        print("  GPU SVM: cuML SVC loaded (RTX 4060)")
+    except ImportError:
+        print("  GPU SVM: cuML not available, using sklearn CPU SVM")
+
+    # Parallel feature extraction using all CPU cores
+    n_cpu = _os.cpu_count() or 4
+    print(f"  Parallel extraction: {n_cpu} CPU cores")
+    
     # Collect all training data
-    from src.utils import load_labeled_dataset, get_all_image_paths
+    from src.utils import (
+        load_labeled_dataset, get_all_image_paths,
+        augment_dataset_with_jpeg, cleanup_augmented_files,
+    )
     import numpy as np
-    
+
     paths, labels = load_labeled_dataset(real_dir, ai_dir)
-    
+
     # Add screenshot directories if they exist
     if os.path.isdir(real_screenshots_dir):
         ss_real = get_all_image_paths(real_screenshots_dir)
         print(f"  Adding {len(ss_real)} real screenshots from {real_screenshots_dir}")
         paths.extend(ss_real)
         labels.extend([0] * len(ss_real))
-    
+
     if os.path.isdir(ai_screenshots_dir):
         ss_ai = get_all_image_paths(ai_screenshots_dir)
         print(f"  Adding {len(ss_ai)} AI screenshots from {ai_screenshots_dir}")
         paths.extend(ss_ai)
         labels.extend([1] * len(ss_ai))
-    
-    labels = np.array(labels)
-    print(f"\nTotal training set: {len(labels)} images")
-    print(f"  Real: {np.sum(labels == 0)} | AI: {np.sum(labels == 1)}")
-    print("\nExtracting features...")
-    
-    # Extract features
-    X = classifier.feature_extractor.extract_batch(paths, verbose=True)
-    
+
+    print(f"\nBase training set: {len(paths)} images")
+    print(f"  Real: {sum(1 for l in labels if l == 0)}"
+          f" | AI: {sum(1 for l in labels if l == 1)}")
+
+    # JPEG augmentation (ITW-SM: training data composition is key)
+    print("\nApplying JPEG augmentation (Q=70, Q=80, 0.75x resize)...")
+    aug_paths, aug_labels, tmp_paths = augment_dataset_with_jpeg(paths, labels)
+    labels_arr = np.array(aug_labels)
+    print(f"Augmented training set: {len(aug_paths)} images "
+          f"({len(aug_paths) - len(paths)} synthetic copies)")
+    print(f"  Real: {np.sum(labels_arr == 0)} | AI: {np.sum(labels_arr == 1)}")
+    print("\nExtracting features (parallel)...")
+
+    # Parallel feature extraction
+    X = classifier.feature_extractor.extract_batch(
+        aug_paths, verbose=True, n_workers=n_cpu
+    )
+
     # Scale and train
     from sklearn.preprocessing import StandardScaler
     from sklearn.model_selection import cross_val_score
     from sklearn.metrics import accuracy_score
-    
+
     X_scaled = classifier.scaler.fit_transform(X)
-    
-    print("\nRunning 5-fold cross-validation...")
-    cv_scores = cross_val_score(classifier.svm, X_scaled, labels, cv=min(5, len(labels) // 4))
-    print(f"  CV Accuracy: {cv_scores.mean():.3f} (+/- {cv_scores.std():.3f})")
-    
-    print("\nTraining SVM on full dataset...")
-    classifier.svm.fit(X_scaled, labels)
+
+    # Use GPU cross-validation if cuML available, else sklearn
+    if use_gpu:
+        # cuML SVC doesn't support cross_val_score directly; do it manually
+        from sklearn.model_selection import StratifiedKFold
+        import numpy as _np
+        skf = StratifiedKFold(n_splits=min(5, len(labels_arr) // 4))
+        cv_preds = _np.zeros(len(labels_arr))
+        for train_idx, val_idx in skf.split(X_scaled, labels_arr):
+            _svm_fold = CumlSVC(kernel='rbf', probability=True, C=10.0, gamma='scale')
+            _svm_fold.fit(X_scaled[train_idx], labels_arr[train_idx])
+            cv_preds[val_idx] = _svm_fold.predict(X_scaled[val_idx])
+        cv_acc = float(_np.mean(cv_preds == labels_arr))
+        print(f"  GPU CV Accuracy: {cv_acc:.3f}")
+    else:
+        cv_scores = cross_val_score(
+            classifier.svm, X_scaled, labels_arr,
+            cv=min(5, len(labels_arr) // 4)
+        )
+        cv_acc = cv_scores.mean()
+        print(f"  CPU CV Accuracy: {cv_acc:.3f} (+/- {cv_scores.std():.3f})")
+
+    print("\nTraining SVM on full dataset...") 
+    if use_gpu:
+        # cuML SVC expects cupy arrays
+        X_gpu = cp.array(X_scaled)
+        y_gpu = cp.array(labels_arr)
+        classifier.svm.fit(X_gpu, y_gpu)
+        train_pred = classifier.svm.predict(X_gpu)
+        train_pred = cp.asnumpy(train_pred)
+    else:
+        classifier.svm.fit(X_scaled, labels_arr)
+        train_pred = classifier.svm.predict(X_scaled)
     classifier.is_trained = True
-    
-    train_pred = classifier.svm.predict(X_scaled)
-    train_acc = accuracy_score(labels, train_pred)
-    
-    elapsed = time.time() - start_time
-    
-    # Save the model
+
+    train_acc = accuracy_score(labels_arr, train_pred)
+
+    # Save model (save sklearn-compatible wrapper so load_model works)
+    if use_gpu:
+        # Wrap cuML SVC in a sklearn-API-compatible adapter for joblib save
+        # Store as cuML model — note: loads require cuML on inference machine
+        classifier.is_trained = True  # flag already set above
     model_path = classifier.save_model(model_dir)
-    
-    print(f"\nTraining completed in {elapsed:.1f}s")
-    print(f"Cross-validation accuracy: {cv_scores.mean():.3f} (+/- {cv_scores.std():.3f})")
+
+    # Cleanup temp augmentation files
+    cleanup_augmented_files(tmp_paths)
+
+    elapsed = time.time() - start_time
+    backend = "cuML GPU" if use_gpu else "sklearn CPU"
+    print(f"\nTraining completed in {elapsed:.1f}s ({backend})")
+    print(f"CV Accuracy: {cv_acc:.3f}")
     print(f"Training accuracy: {train_acc:.3f}")
     print(f"Model saved to: {model_path}")
+
 
 
 def evaluate_model(test_real_dir: str = 'data/test/real',

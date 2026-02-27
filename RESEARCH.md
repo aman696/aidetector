@@ -1,276 +1,189 @@
 # AI Image Detection — Literature Review & Research Notes
 
-> **Date:** February 15, 2025  
-> **Goal:** Understand the landscape of AI image detection techniques, identify what works for modern diffusion models, and determine which methods to apply to improve our detector.
+> **Last updated:** February 27, 2026  
+> **Goal:** Track the landscape of AI image detection, what's implemented, what's confirmed broken by testing, and what to build next.
 
 ---
 
-## Papers Read
+## Current Implementation Status
+
+As of today, the detector uses **8 analyzers producing 69 features** (54 base + 15 RIGID drift), trained on 500 augmented images. CV accuracy: **84.8%** (on augmented set — harder than the old 99.2% on 125 unaugmented images).
+
+| Analyzer | Paper Basis | Features | Status |
+|---|---|---|---|
+| FFT | Durall et al. 2020 (arXiv:1911.00686) | 4 | ✅ Implemented |
+| Eigenvalue + Spectral bands | Corvi et al. 2023 (arXiv:2304.06408) | 12 | ✅ Implemented |
+| Metadata | Standard EXIF forensics | 6 | ✅ Implemented |
+| Noise residual | PRNU-inspired (Lukáš 2006) | 6 | ✅ Implemented |
+| Multi-scale noise + chroma corr. | Gragnaniello 2021 + our extension | 5 | ✅ Implemented |
+| DCT block coefficients | Frank et al. 2020 | 6 | ✅ Implemented |
+| JPEG block boundary | Classic JPEG forensics | 2 | ✅ Implemented |
+| ELA | Digital forensics literature | 5 | ✅ Implemented |
+| Gradient statistics | Gragnaniello CVPR 2023 | 5 | ✅ Implemented |
+| PatchCraft texture contrast | Zhong et al. 2023 (arXiv:2311.12397) | 3 | ✅ Implemented (simplified) |
+| **RIGID drift features** | **RIGID 2024 (arXiv)** | **15** | ✅ **Implemented (classical approx.)** |
+
+**Training pipeline:** ITW-SM 2025 augmentation (Q=70, Q=80, 0.75× resize) → 500 training images  
+**Backend:** cuML GPU SVM (RTX 4060) + 16-core parallel CPU feature extraction
+
+
+---
+
+## Papers Implemented
 
 ### 1. Durall et al. 2020 — "Unmasking DeepFakes with simple Features"
-**Citation:** arXiv:1911.00686 (ICML 2020 Workshop)
+**arXiv:1911.00686** | ICML 2020 Workshop
 
-**Core Idea:** GANs fail to correctly reproduce the spectral distributions of natural images. Real images follow a ~1/f power law in the frequency domain; GAN images deviate systematically at high frequencies.
+**Core Idea:** GANs fail to reproduce the ~1/f spectral distribution of natural images. The spectral slope in log-log space deviates at high frequencies.
 
-**Method:**
-- Compute 2D FFT → azimuthal average → 1D radial power spectrum
-- Fit slope in log-log space — natural images have slope ≈ -1
-- Use deviation from natural slope as a detection signal
-- Simple classifier (even a threshold) achieves 100% on high-res face datasets
+**What we implemented:** `fft_analyzer.py` — 2D FFT → azimuthal average → 1D power spectrum → spectral slope + R², high-freq ratio, spectral falloff.
 
-**Key Findings:**
-- Works well on **GANs** (ProGAN, StyleGAN, DCGAN)
-- Achieved 100% accuracy with as few as 20 training samples on Faces-HQ
-- 91% accuracy on low-resolution FaceForensics++ video frames
-
-**Limitations (critical for us):**
-- **Designed for GANs, not diffusion models.** Modern generators (DALL-E 3, Gemini, Flux) use diffusion, not GAN upsampling
-- Diffusion models don't have the same checkerboard artifacts from transposed convolution
-- This explains why our FFT analyzer shows "Real" for almost all images — it's detecting a GAN-specific artifact that doesn't exist in diffusion outputs
-
-**Insight for our project:** FFT spectral slope alone is insufficient for diffusion models. Need to look at different frequency features or combine with other approaches.
+**What we know now from testing:**
+- Works reasonably on older GAN-generated images
+- **Weak on modern diffusion models** (DALL-E 3, Gemini, Kling) — diffusion upsampling doesn't produce the same transposed-convolution checkerboard artifacts
+- Degrades badly on images <512px (too few frequency bins for reliable slope estimation)
+- FFT score frequently shows "uncertain" on social-media-recompressed images
 
 ---
 
 ### 2. Frank et al. 2020 — "Leveraging Frequency Analysis for Deep Fake Image Recognition"
-**Citation:** ICML 2020
+**ICML 2020**
 
-**Core Idea:** Use **Discrete Cosine Transform (DCT)** instead of FFT for frequency analysis. DCT coefficients from image blocks can be linearly separated.
+**Core Idea:** GAN-generated images show systematic artifacts in 8×8 DCT block coefficient distributions, specifically in AC coefficient statistics. These are block-level patterns that azimuthal-averaged FFT misses.
 
-**Method:**
-- Divide image into 8×8 blocks (like JPEG encoding)
-- Apply 2D DCT to each block
-- Aggregate DCT coefficient statistics across blocks
-- Use ridge regression classifier on DCT features
+**What we implemented:** `dct_analyzer.py` — 8×8 block DCT → AC energy ratio, high-freq energy, coefficient kurtosis, coefficient variance, DC variance, zigzag decay.
 
-**Key Findings:**
-- GAN-generated images show systematic artifacts in DCT coefficients
-- Artifacts are consistent across GAN architectures, datasets, and resolutions
-- Artifacts are caused by upsampling operations (transposed convolutions)
-- DCT features can be **linearly separated** — no need for complex classifiers
+**What we extended beyond the paper:** Added JPEG block boundary analysis — `dct_boundary_ratio` and `dct_boundary_var_ratio`. These detect whether the image has a pre-existing JPEG quantization grid (real recompressed JPEG) vs. PNG-origin compression (AI images). Fully vectorized with `np.diff` + boolean masking.
 
-**Insight for our project:** DCT analysis is more interpretable than raw FFT and aligns with JPEG's native compression domain. We should add DCT-based features — they capture block-level patterns that FFT's azimuthal average misses.
+**Known limitation confirmed in testing:** Screenshots are also PNG→JPEG, so `dct_boundary_ratio` ≈ 1.0 for both — correctly identifies "no pre-existing JPEG grid" but cannot distinguish screenshot from AI.
 
 ---
 
 ### 3. Corvi et al. 2023 — "Intriguing Properties of Synthetic Images"
-**Citation:** CVPRW 2023 (arXiv:2304.06408)
+**arXiv:2304.06408** | CVPRW 2023
 
-**Core Idea:** Both GANs and diffusion models produce visible artifacts in the Fourier domain, but the nature of artifacts differs. Diffusion models have a "frequency bias" — they struggle to reproduce high frequencies and fine details.
+**Core Idea:** Both GANs and diffusion models produce frequency-domain artifacts, but diffusion models specifically show a "frequency bias" — they struggle to reproduce high frequencies and fine spatial details. Spectral band energy ratios are discriminative.
 
-**Method:**
-- Analyze radial and angular spectral power distributions
-- Compare frequency band energy distributions (low/mid/high)
-- Train ResNet-50 on frequency-domain representations
+**What we implemented:** `eigen_analyzer.py` — global RGB covariance matrix eigenvalues, patch-based eigenvalue statistics (64×64 patches), spectral band energy ratios (low/mid/high/mid-high).
 
-**Key Findings:**
-- Diffusion model images show distinct mid-high frequency anomalies
-- Autocorrelation reveals "artificial fingerprints" in synthetic images
-- Training data biases (e.g., JPEG compression in training set) transfer to generated images
-- Spectral analysis works for both GANs and diffusion models, but needs **different features** for each
-
-**Insight for our project:** Our eigen_analyzer's spectral band analysis is inspired by this, but we should add:
-1. **Autocorrelation analysis** — detect periodic patterns in frequency domain
-2. **Angular spectral analysis** — not just radial (azimuthal) averaging
-3. **Mid-high frequency energy ratio** as a distinct feature (we have this but need better thresholds)
+**Known limitation:** Chroma subsampling (4:2:0) from social media partially destroys inter-channel covariance structure. The eigenvalue features degrade on any social-media-sourced image.
 
 ---
 
-### 4. Wang et al. 2020 — "CNN-generated images are surprisingly easy to spot... for now"
-**Citation:** CVPR 2020
+### 4. Gragnaniello et al. 2021/2023
+**IEEE ICME 2021 + CVPR 2023**
 
-**Core Idea:** A classifier trained on images from **one** CNN generator (ProGAN) can generalize to detect images from many other unseen generators.
+**Two separate contributions we used:**
 
-**Method:**
-- Train a standard ResNet-50 classifier on ProGAN real/fake pairs
-- Test on 11 different generators (StyleGAN, BigGAN, CycleGAN, etc.)
-- Apply data augmentation (blur, JPEG compression) during training for robustness
+**(a) ICME 2021 — chrominance + residual domain features:**  
+Chrominance features are more robust than luminance for detection. JPEG augmentation during training is critical.
 
-**Key Findings:**
-- Surprising cross-generator generalization — CNN generators share common artifacts
-- Data augmentation during training is **critical** for generalization
-- JPEG compression and Gaussian blur augmentation improved unseen-generator accuracy significantly
-- However, **this generalization does NOT extend well to diffusion models** (later studies showed)
+**(b) CVPR 2023 — gradient statistics:**  
+Real images have heavy-tailed edge distributions (real-world scene edges are sharp and unpredictable). AI images have smoother/more regularized gradient distributions. Gradient statistics survive JPEG recompression at Q>70 because they measure *relative* structure.
 
-**Insight for our project:** We should apply data augmentation (blur, compression, resize) to our training pipeline. Also, training on diverse generators is important — our dataset only has Gemini and Kling images.
+**What we implemented:**
+- `gradient_analyzer.py` (CVPR 2023): Sobel gradient magnitude → mean, variance, kurtosis, Laplacian mean, Laplacian variance (5 features)
+- `noise_analyzer.py` chroma extension (ICME 2021 inspired): inter-channel noise correlations `noise_rg_corr`, `noise_rb_corr`, `noise_gb_corr`
 
 ---
 
-### 5. Ojha et al. 2023 — "Towards Universal Fake Image Detectors"
-**Citation:** CVPR 2023
+### 5. PatchCraft — Zhong et al. 2023
+**arXiv:2311.12397** | Updated v3: March 2024
 
-**Core Idea:** Instead of learning real-vs-fake features, use a **frozen pre-trained CLIP** feature space. CLIP features, even without fine-tuning for detection, can discriminate real from fake.
+**Core Idea:** AI generative models systematically fail to reproduce fine-grained natural textures. After high-pass filtering (to isolate texture from global scene), image patches split into "rich texture" (high variance) and "poor texture" (low variance) groups. AI images show a characteristically *higher* contrast between these two groups because generators over-smooth poor-texture regions while producing artificial-looking rich texture.
 
-**Method:**
-- Extract features from CLIP's vision encoder (ViT-L/14)
-- Use nearest-neighbor or linear probing on frozen features
-- Train only on ProGAN images, test across GANs and diffusion models
+**Key properties:**
+- Evaluated on a benchmark of **17 generative models** — both GANs and diffusion models
+- Also uses a "Smash&Reconstruct" preprocessing to erase global semantics and enhance texture patterns (more aggressive than our implementation)
+- Shows significant improvement over Wang et al. 2020 baselines across all model types
 
-**Key Findings:**
-- CLIP features generalize dramatically better than CNN-specific detectors
-- +15 mAP improvement over prior SOTA on unseen diffusion/autoregressive models
-- The key is that CLIP learned general "naturalness" features from internet-scale data
-- Even a linear probe on CLIP features outperforms complex trained detectors
+**What we implemented (simplified):** `patchcraft_analyzer.py` — high-pass filter (img − gaussian_blur) → 32×32 patch variances → median split into rich/poor → 3 features: `texture_contrast`, `texture_rich_mean`, `texture_poor_mean`.
 
-**Why this matters but is out of scope for us:**
-- Requires large pre-trained model (~400MB+ ViT-L)
-- We're building a lightweight rule-based system, not a deep learning pipeline
-- However, if we ever want to add a neural component, CLIP linear probing is the way to go
+**What we did NOT implement from the paper:**
+- Smash&Reconstruction preprocessing (erases global semantics — requires more complex augmentation)
+- Inter-pixel correlation within patches (we use patch variance as a proxy)
+- The full benchmark evaluation pipeline (17 models)
+
+**Known limitation confirmed:** Images <256px may produce <36 patches total — statistically unreliable. This is why low-resolution AI images get uncertain scores.
 
 ---
 
-### 6. Gragnaniello et al. 2021 — "Are GAN Generated Images Easy to Detect?"
-**Citation:** IEEE ICME 2021
+---
 
-**Core Idea:** Detection robustness to real-world conditions (JPEG compression, social media upload) is far more important than raw accuracy on clean data.
+### 6. ITW-SM — Konstantinidou et al. 2025
+**arXiv:2507.10236** | ITI-CERTH  
+**Status: ✅ IMPLEMENTED** — `augment_dataset_with_jpeg()` in `src/utils.py`, called during `python main.py --train`
 
-**Method:**
-- Extract chrominance features and residual domain features
-- Test under domain mismatch (train on one GAN, test on another)
-- Evaluate under JPEG compression at various quality levels
+Built a dataset of 10,000 images from Facebook, Instagram, LinkedIn, and X. Key finding: current detectors lose >26% AUC on social-media-sourced images vs. clean benchmarks.
 
-**Key Findings:**
-- Chrominance (color channel) features are more robust than luminance for detection
-- Residual domain analysis (denoising filter then analyzing the residual) helps
-- JPEG compression significantly degrades detection — pixel-level artifacts are destroyed
-- Training with compression augmentation vastly improves robustness
-- One-class classification (trained on real images only) is feasible using learned features
+**What we implemented:** For each training image, add JPEG copies at Q=70 and Q=80 + a 0.75× downscaled copy. 125 base images → 500 augmented images. Teaches the SVM that "JPEG-compressed Real photo ≠ AI". Files cleaned up via `cleanup_augmented_files()` after training.
 
-**Insight for our project:**
-1. We should analyze **YCbCr color space** separately — chrominance channels may carry stronger signals
-2. **Residual noise analysis** — apply a denoising filter, then analyze the difference (residual)
-3. We should augment training with JPEG-compressed versions to improve robustness
+**Effect confirmed:** Training accuracy dropped from 99.2%→84.8% on the harder augmented set — which is correct. The old 99.2% was overfitting on easy images; 84.8% on augmented images reflects real-world harder conditions.
 
 ---
 
-### 7. Error Level Analysis (ELA)
-**Source:** Digital forensics literature, various implementations
+### 7. RIGID — 2024
+**arXiv (2024)** — "RIGID: A Training-free and Model-Agnostic Framework for Robust AI-Generated Image Detection"  
+**Status: ✅ IMPLEMENTED (classical approximation)** — `_compute_drift_features()` in `src/classifier.py`, features 55–69 of 69 total
 
-**Core Idea:** Re-save a JPEG image at known quality → compare to original → the difference reveals compression inconsistencies.
+**Core Idea:** Real images are more robust to tiny noise perturbations than AI-generated images in DINOv2 feature space.
 
-**Method:**
-1. Re-save image at fixed JPEG quality (e.g., 95%)
-2. Compute absolute pixel difference between original and re-saved
-3. Analyze variance of the ELA map — uniform = consistent compression history
+**What we implemented (without DINOv2):**
+1. Add Gaussian noise (σ=2) to image → save to temp file
+2. Re-run FFT, Noise, Gradient, DCT, PatchCraft, Eigen analyzers on perturbed image
+3. Return `|original_features − perturbed_features|` for 15 key features
+4. These 15 "drift" values become the final 15 features (indices 54–68)
 
-**Key Properties:**
-- Originally designed for image tampering detection (spliced regions have different compression levels)
-- AI images often have **uniform ELA** (never been JPEG-compressed before) vs real photos (compressed by camera)
-- PNG images always have uniform ELA → not useful for AI PNGs
-- Works best when comparing JPEG vs JPEG
+Real images: low drift (features are stable under noise). AI images: somewhat higher drift. Contributes a training-free generalization signal.
 
-**Insight for our project:**
-- ELA mean/variance as additional features could help distinguish camera-JPEG vs never-compressed AI images
-- Only useful for JPEG inputs — we need to handle PNGs differently
-- Simple to implement with OpenCV
+**What we did NOT implement:** The DINOv2/ViT backbone (requires ~300MB model, out of scope for classical pipeline).
 
 ---
 
-### 8. PRNU (Photo Response Non-Uniformity) Analysis
-**Source:** Lukáš et al. 2006, Li 2010
+### 8. Wang et al. 2020 — "CNN-generated images are surprisingly easy to spot... for now"
+**CVPR 2020**  
+**Status: ✅ PARTIALLY IMPLEMENTED** — data augmentation principle applied via ITW-SM implementation; ResNet-50 classifier out of scope
 
-**Core Idea:** Camera sensors have a unique "fingerprint" — a fixed noise pattern from manufacturing defects. AI images lack this.
-
-**Method:**
-1. Apply a denoising filter (wavelet, BM3D, or Wiener)
-2. Subtract denoised from original → get noise residual
-3. Real camera photos have structured sensor noise; AI images have random/structured-differently noise
-
-**Key Properties:**
-- PRNU is like a camera fingerprint — each sensor is unique
-- AI images have no sensor → no PRNU pattern → noise residual looks different
-- Can compute noise residual variance, kurtosis, spectral properties
-
-**Insight for our project:** 
-- **Noise residual statistics** (variance, kurtosis, spectral entropy) as new features
-- Simple implementation: Gaussian blur → subtract → analyze residual
-- This directly addresses the screenshot problem: screenshots have different noise characteristics than both camera photos and AI images
+Wang et al. showed that adding JPEG-compressed and Gaussian-blurred training images significantly improves robustness to unseen generators. We applied this principle in our `augment_dataset_with_jpeg()` (Q=70, Q=80, 0.75× resize). The ResNet-50 detector itself was not implemented (classical-only pipeline).
 
 ---
 
-### 9. Wavelet/DCT Kurtosis-Based Noise Analysis
-**Source:** Mahdian & Saic (CAS Prague), multiple forensics papers
+## What's Actually Broken (From Real Testing)
 
-**Core Idea:** In band-pass filtered domains (wavelets, DCT), natural images have kurtosis values that concentrate around a constant. Synthetic/manipulated regions deviate.
-
-**Method:**
-1. Apply wavelet decomposition or block DCT
-2. Compute kurtosis of coefficients in each sub-band/block
-3. Regions with inconsistent kurtosis → likely tampered or synthetic
-
-**Key Properties:**
-- PCA can be applied to blocks for noise estimation, even in textured regions
-- Wavelet HH1 sub-band captures high-frequency noise characteristics
-- Block-based analysis can detect local inconsistencies
-
-**Insight for our project:** Add wavelet-domain kurtosis as features. We already do block-based eigenvalue analysis — extending to wavelet sub-band statistics is straightforward.
+| Failure | Confirmed | Root Cause | Fix Status |
+|---|---|---|---|
+| Screenshot of real content → AI (80%+) | ✅ Confirmed | No EXIF + no camera noise + no JPEG grid | ✅ Screenshot mode toggle in web UI |
+| Low-res AI (~256px) → Real/Uncertain | ✅ Confirmed | PatchCraft needs ≥36 patches; multi-scale collapses | ✅ Resolution guard added |
+| Social media screenshot of real photo → AI | ✅ Confirmed | EXIF stripped, display-rendered | ✅ Partially mitigated by JPEG augmentation |
+| AI image with grain filter + injected EXIF → Real | ⚠️ Expected | Noise looks camera-like, low metadata score | ✅ Partially mitigated by RIGID drift features |
+| Video frames from Seedance/ByteDance | ⚠️ Observed | Video codec (H.264/H.265) differs from image generators | ❌ Not fixed — use Screenshot mode as workaround |
 
 ---
 
-## Summary: What Works and What Doesn't
+## Priority Queue — All Completed ✅
 
-| Technique | Works on GANs? | Works on Diffusion? | Our Status | Notes |
-|-----------|:-:|:-:|---|---|
-| FFT spectral slope (Durall) | ✅ Strong | ❌ Weak | ⚠ Implemented but ineffective | Designed for GAN upsampling artifacts |
-| DCT block analysis (Frank) | ✅ Strong | ⚡ Moderate | ❌ Not implemented | Block-level features, linearly separable |
-| Spectral band analysis (Corvi) | ✅ Strong | ✅ Strong | ✅ Implemented | Mid-high freq deficit is key |
-| CLIP features (Ojha) | ✅ Strong | ✅ Strong | ❌ Not implemented | Requires large model, out of scope |
-| ELA (various) | ⚡ Moderate | ⚡ Moderate | ❌ Not implemented | JPEG-only, simple to add |
-| PRNU/noise residual | ✅ Strong | ✅ Strong | ❌ Not implemented | Universal, addresses screenshot issue |
-| Chrominance analysis (Gragnaniello) | ✅ Strong | ⚡ Moderate | ❌ Not implemented | Color channel separation |
-| Wavelet kurtosis | ⚡ Moderate | ⚡ Moderate | ❌ Not implemented | Good for local inconsistency |
-| Metadata (ours) | ✅ Strong | ✅ Strong | ✅ Implemented | Effective but trivially fakeable |
+| Priority | Item | Status |
+|---|---|---|
+| 1 | ITW-SM training augmentation (Q=70, Q=80, 0.75× resize) | ✅ `augment_dataset_with_jpeg()` in `utils.py` |
+| 2 | Resolution guard for PatchCraft + noise multi-scale | ✅ Guards in `patchcraft_analyzer.py` + `noise_analyzer.py` |
+| 3 | Screenshot pre-detection + web UI toggle | ✅ `screenshot_detector.py` + "📱 Screenshot" button |
+| 4 | RIGID-inspired feature drift (54→69 features) | ✅ `_compute_drift_features()` in `classifier.py` |
+| 5 | GPU-accelerated SVM training | ✅ cuML RTX 4060 + 16-core ProcessPoolExecutor |
+
+**Next priority (not yet done):** Grow training dataset — add Ideogram, Recraft, Seedance samples to `data/ai_generated/` and retrain.
 
 ---
 
-## What We Will Apply (Prioritized)
+## Key Insights for ISI Interview
 
-### Priority 1 — Noise Residual Analysis (High Impact)
-**Why:** Directly addresses screenshot false-positive problem. Camera photos have sensor noise; AI images have structured/uniform noise; screenshots have no sensor noise but different patterns.
-**How:**
-- Apply Gaussian/median denoising → compute noise residual
-- Extract: residual variance, kurtosis, spectral entropy, spatial autocorrelation
-- ~4-6 new features for the SVM
+1. **Our FFT targets GAN artifacts, not diffusion.** Durall 2020 was designed for transposed-convolution checkerboard patterns. Diffusion models don't produce those.
 
-### Priority 2 — DCT Block Analysis (High Impact)
-**Why:** More appropriate than FFT for modern images. Works at block level (like JPEG), captures local patterns. Frank 2020 showed linear separability.
-**How:**
-- Divide into 8×8 blocks → 2D DCT per block
-- Compute: coefficient statistics (mean, var, kurtosis of AC coefficients), energy distribution
-- ~4-6 new features
+2. **Metadata is the strongest signal but also the most fragile.** Social media strips it. Tools like `exiftool` can inject fake cameras. Yet it still contributes heavily to the SVM.
 
-### Priority 3 — ELA Features (Medium Impact, JPEG-only)
-**Why:** Simple to implement, captures compression history differences.
-**How:**
-- Re-save at quality=95 → compute difference map
-- Extract: ELA mean, variance, range, uniformity
-- ~3-4 new features (only for JPEG inputs; default values for PNG)
+3. **PatchCraft generalizes across 17 generator types** — the best-generalizing classical feature we have. The texture-synthesis limitation appears to be fundamental to how all current generators work.
 
-### Priority 4 — Improved FFT Features (Medium Impact)
-**Why:** Current FFT features target GAN artifacts. Need to retune for diffusion models.
-**How:**
-- Add angular (directional) spectral analysis instead of just radial
-- Add autocorrelation-based periodicity detection
-- Retune spectral slope thresholds based on diffusion-model characteristics
+4. **Training data composition > model complexity** (per ITW-SM 2025). We don't need a fancier SVM — we need training images that reflect the actual distribution we're being tested on.
 
-### Priority 5 — YCbCr Chrominance Features (Lower Priority)
-**Why:** Gragnaniello showed chrominance is more robust than luminance for detection.
-**How:**
-- Convert to YCbCr → analyze Cb and Cr channels separately
-- Compute variance ratios, correlation between channels
+5. **Screenshots are a third class, not a subset of Real or AI.** The correct architecture is a 3-class detector: {Real, AI-Generated, Screenshot/Rendered}. Forcing binary classification produces systematic errors on screenshots.
 
----
-
-## Key Takeaways
-
-1. **Our FFT is targeting the wrong artifact.** Durall's spectral slope works for GANs but diffusion models don't exhibit the same high-frequency dropout. This is why FFT shows "Real" for everything.
-
-2. **Metadata is our strongest feature but also the weakest link.** It's trivially fakeable — anyone can inject EXIF data, and screenshots/social media strip it.
-
-3. **Noise residual analysis is the most promising addition.** It works across all generator types and addresses our screenshot problem.
-
-4. **DCT is better suited than FFT for block-level analysis.** JPEG images are already DCT-encoded, so analyzing DCT coefficients is natural and aligned with how images are stored.
-
-5. **Data augmentation during training is essential.** We should add JPEG-compressed and resized versions of our training images.
-
-6. **We need more diverse training data.** 50+51 images from only 2 generators (Gemini, Kling) is not enough for generalization.
+6. **RIGID drift without DINOv2 still adds value.** Even our classical feature-drift approximation (σ=2 perturbation → |Δfeatures|) adds 15 training-free generalization features. The principle works independently of the backbone.
