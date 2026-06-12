@@ -5,10 +5,13 @@ Inspired by: "Towards Universal Fake Image Detection by Detecting Closest
 Real Image" (arXiv 2024, PatchCraft approach).
 
 Key insight: AI generative models struggle to faithfully reproduce the
-fine-grained texture found in real photographs. When you apply a high-pass
-filter (original − blurred) and compare patches with rich texture vs poor
-texture, AI images show a characteristically HIGHER contrast between these
-two patch types.
+fine-grained texture found in real photographs. After high-pass filtering
+(original − blurred), the contrast between rich-texture and poor-texture
+patches separates the classes. Measured on this dataset with the l_div
+diversity measure, REAL photos show the larger contrast (chaotic texture
+next to smooth regions) while generators produce more uniform statistics —
+see patchcraft_score and code_notes/09-patchcraft-analyzer.md for the
+direction note.
 
 This is robust to JPEG recompression because it uses relative differences
 between patch groups — compression shifts rich and poor patches similarly,
@@ -16,14 +19,15 @@ preserving the contrast ratio.
 
 Pipeline:
 1. Apply high-pass filter: hp = original − gaussian_blur
-2. Compute per-patch variance of the high-pass image
-3. Split patches into "rich" (top 50% variance) and "poor" (bottom 50%)
+2. Compute per-patch texture diversity l_div (4-direction mean absolute
+   neighbour difference, PatchCraft Eq. 1 — see code_notes/09-patchcraft-analyzer.md)
+3. Split patches into "rich" (top 50% l_div) and "poor" (bottom 50%)
 4. Features: mean(rich) − mean(poor), mean(rich), mean(poor)
 
 Features extracted (3 total):
     - texture_contrast: mean(rich_patches) - mean(poor_patches) — KEY FEATURE
-    - texture_rich_mean: mean variance of rich-texture patches
-    - texture_poor_mean: mean variance of poor-texture patches
+    - texture_rich_mean: mean l_div of rich-texture patches
+    - texture_poor_mean: mean l_div of poor-texture patches
 """
 
 import numpy as np
@@ -53,26 +57,53 @@ def compute_high_pass(img_gray: np.ndarray, blur_sigma: float = 3.0) -> np.ndarr
     return img_float - blurred
 
 
-def compute_patch_variances(
+def compute_patch_ldiv(
     high_pass: np.ndarray, patch_size: int = 32
 ) -> np.ndarray:
     """
-    Computes variance of high-pass energy within non-overlapping patches.
+    Computes per-patch texture diversity l_div: the mean absolute neighbour
+    difference over four directions (horizontal, vertical, diagonal,
+    anti-diagonal), per PatchCraft Eq. 1. See code_notes/09-patchcraft-analyzer.md
+    for why this replaces patch variance.
 
     Args:
         high_pass: 2D high-pass filtered image (float64).
         patch_size: Side length of each square patch in pixels.
 
     Returns:
-        1D array of per-patch variances.
+        1D array of per-patch l_div values (mean over difference terms, so
+        the scale is independent of patch size).
     """
     h, w = high_pass.shape
-    variances = []
-    for y in range(0, h - patch_size + 1, patch_size):
-        for x in range(0, w - patch_size + 1, patch_size):
-            patch = high_pass[y : y + patch_size, x : x + patch_size]
-            variances.append(float(np.var(patch)))
-    return np.array(variances)
+    ph, pw = h // patch_size, w // patch_size
+    if ph == 0 or pw == 0:
+        return np.array([])
+    x = high_pass[:ph * patch_size, :pw * patch_size]
+
+    diffs = (
+        np.abs(x[:, 1:] - x[:, :-1]),     # horizontal
+        np.abs(x[1:, :] - x[:-1, :]),     # vertical
+        np.abs(x[1:, 1:] - x[:-1, :-1]),  # diagonal
+        np.abs(x[1:, :-1] - x[:-1, 1:]),  # anti-diagonal
+    )
+
+    totals = np.zeros((ph, pw), dtype=np.float64)
+    counts = np.zeros((ph, pw), dtype=np.float64)
+    for d in diffs:
+        dh, dw = d.shape
+        gh, gw = dh - dh % patch_size, dw - dw % patch_size
+        if gh == 0 or gw == 0:
+            continue
+        block = d[:gh, :gw].reshape(gh // patch_size, patch_size,
+                                    gw // patch_size, patch_size)
+        sums = block.sum(axis=(1, 3))
+        totals[:sums.shape[0], :sums.shape[1]] += sums
+        counts[:sums.shape[0], :sums.shape[1]] += patch_size * patch_size
+
+    valid = counts > 0
+    ldiv = np.zeros_like(totals)
+    ldiv[valid] = totals[valid] / counts[valid]
+    return ldiv.ravel()
 
 
 def extract_patchcraft_features(image_path: str) -> Dict[str, float]:
@@ -110,15 +141,15 @@ def extract_patchcraft_features(image_path: str) -> Dict[str, float]:
             return _default
 
         high_pass = compute_high_pass(img)
-        variances = compute_patch_variances(high_pass)
+        ldiv = compute_patch_ldiv(high_pass)
 
-        if len(variances) < 4:
+        if len(ldiv) < 4:
             return _default
 
         # Split at median into rich (top 50%) and poor (bottom 50%)
-        median = np.median(variances)
-        rich = variances[variances >= median]
-        poor = variances[variances < median]
+        median = np.median(ldiv)
+        rich = ldiv[ldiv >= median]
+        poor = ldiv[ldiv < median]
 
         rich_mean = float(np.mean(rich)) if len(rich) > 0 else 0.0
         poor_mean = float(np.mean(poor)) if len(poor) > 0 else 0.0
@@ -138,8 +169,12 @@ def patchcraft_score(image_path: str) -> float:
     """
     Computes a PatchCraft-inspired AI detection score in [0.0, 1.0].
 
-    Higher texture contrast between rich and poor patches is the key
-    indicator of AI generation.
+    Measured direction with l_div (30 real vs 30 AI, June 2026): REAL photos
+    show the larger rich/poor contrast (median 10.1 vs 6.8) — genuine scenes
+    pair chaotic texture with smooth regions, while generators produce more
+    uniform texture statistics. LOW contrast therefore reads as AI-like.
+    The SVM uses the raw features; this score is for the explanation panel
+    and the voting fallback only. See code_notes/09-patchcraft-analyzer.md.
 
     Args:
         image_path: Path to image file.
@@ -151,8 +186,7 @@ def patchcraft_score(image_path: str) -> float:
 
     contrast = features['texture_contrast']
 
-    # Calibrated loosely: real photos typically have contrast in 0–100,
-    # AI images tend toward 100–400+ because generators produce
-    # artificially smooth regions alongside over-sharpened detail regions.
-    score = float(np.clip(contrast / 300.0, 0.0, 1.0))
+    # Scale calibrated from a 99-image sample (p95 ≈ 17.3, max ≈ 26.2);
+    # divisor 20 keeps the mapping inside [0, 1] for all but extremes.
+    score = float(np.clip(1.0 - contrast / 20.0, 0.0, 1.0))
     return score

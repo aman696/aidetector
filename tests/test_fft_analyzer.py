@@ -30,8 +30,8 @@ from src.fft_analyzer import (
 
 # --- Paths to sample images ---
 DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data')
-REAL_IMG = os.path.join(DATA_DIR, 'real', 'real_001.jpg')
-AI_IMG = os.path.join(DATA_DIR, 'ai_generated', 'ai_gemini_img_001.png')
+REAL_IMG = os.path.join(DATA_DIR, 'real', 'coco', 'img_00001.jpg')
+AI_IMG = os.path.join(DATA_DIR, 'Gemini', 'ai_gemini_img_001.png')
 
 
 # =====================================================================

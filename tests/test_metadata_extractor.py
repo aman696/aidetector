@@ -23,8 +23,8 @@ from src.metadata_extractor import (
 )
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data')
-REAL_IMG = os.path.join(DATA_DIR, 'real', 'real_001.jpg')       # JPEG with EXIF
-AI_IMG = os.path.join(DATA_DIR, 'ai_generated', 'ai_gemini_img_001.png')  # PNG, no EXIF
+REAL_IMG = os.path.join(DATA_DIR, 'real', 'coco', 'img_00001.jpg')       # JPEG with EXIF
+AI_IMG = os.path.join(DATA_DIR, 'Gemini', 'ai_gemini_img_001.png')  # PNG, no EXIF
 
 
 # =====================================================================
@@ -136,13 +136,25 @@ class TestMetadataScore:
         score = metadata_score(AI_IMG)
         assert 0.0 <= score <= 1.0
 
-    def test_ai_image_scores_higher(self):
-        """AI images (no EXIF) should generally score higher than real images (with EXIF)."""
-        real_score = metadata_score(REAL_IMG)
+    def test_exifless_image_scores_higher_than_camera_jpeg(self, tmp_path):
+        """The scorer's contract: an image without camera EXIF must score at
+        least as suspicious as one carrying camera tags. The current dataset's
+        real images have no EXIF (stripped at source), so a camera-tagged JPEG
+        is synthesized here instead of relying on dataset properties."""
+        from PIL import Image
+        img = Image.open(REAL_IMG).convert('RGB')
+        exif = Image.Exif()
+        exif[271] = 'Canon'             # Make
+        exif[272] = 'Canon EOS 5D'      # Model
+        exif[306] = '2024:01:01 12:00:00'  # DateTime
+        tagged = tmp_path / 'with_exif.jpg'
+        img.save(tagged, exif=exif)
+
+        tagged_score = metadata_score(str(tagged))
         ai_score = metadata_score(AI_IMG)
-        # AI should score higher (more suspicious) — this is the intended design
-        assert ai_score >= real_score, (
-            f"Expected AI score ({ai_score}) >= real score ({real_score})"
+        assert ai_score >= tagged_score, (
+            f"Expected EXIF-less AI score ({ai_score}) >= camera-tagged "
+            f"score ({tagged_score})"
         )
 
     def test_deterministic(self):

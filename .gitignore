@@ -5,30 +5,26 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
-
+.pytest_cache/
+scripts/
 # Runtime output
 logs/
 reports/
-
-# Datasets (4.8 GB — rebuild via scripts/, see WORKFLOW.md)
 data/
 
-# Research papers — arXiv links in RESEARCH.md and AGENTS.md
 papers/
 
-# Private notes (paper explanations, scratch) — local only
 paper_notes/
+code_notes/
 
-# Local-only docs
 CLAUDE.md
 PROJECT_EXPLAINED.md
 TODO.md
 
-# Local-only planning docs
 CLEANUP_AND_RESEARCH_PLAN.md
 CLEANUP_TASKS.md
+V2_PROGRESS.md
 
-# OS / editor
 .DS_Store
 .idea/
 .vscode/

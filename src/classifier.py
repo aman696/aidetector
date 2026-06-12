@@ -1,12 +1,13 @@
 """
 SVM Classifier for AI Image Detection.
 
-Combines features from all eight analysis methods (FFT, Eigenvalue, Metadata,
-Noise Residual, DCT Block, ELA, Gradient, and PatchCraft)
-and uses a Support Vector Machine (SVM) for final classification.
+Combines features from all analysis methods (FFT, Eigenvalue, Metadata,
+Noise Residual, DCT Block, ELA, Gradient, PatchCraft, NPR, Screenshot Image,
+and RIGID drift) and uses a Support Vector Machine (SVM) for final
+classification.
 
 Pipeline:
-1. Extract features from all analyzers
+1. Extract features from all analyzers (85 dims: 4+8+4+6+11+8+5+5+3+6+10+15)
 2. Normalize features
 3. Train SVM with RBF kernel on labeled dataset
 4. Predict with confidence scores and explanations
@@ -32,6 +33,7 @@ from src.dct_analyzer import extract_dct_features, dct_score
 from src.ela_analyzer import extract_ela_features, ela_score
 from src.gradient_analyzer import extract_gradient_features, gradient_score
 from src.patchcraft_analyzer import extract_patchcraft_features, patchcraft_score
+from src.npr_analyzer import extract_npr_features, npr_score
 from src.screenshot_image_analyzer import extract_screenshot_image_features, screenshot_image_score
 from src.screenshot_detector import detect_screenshot
 from src.utils import load_labeled_dataset, validate_image_path
@@ -52,9 +54,9 @@ def _extract_one(image_path: str) -> np.ndarray:
 
 class FeatureExtractor:
     """
-    Runs all eight analysis methods and builds a feature vector.
+    Runs all analysis methods and builds a feature vector.
 
-    Feature vector structure (79 features total):
+    Feature vector structure (85 features total):
     - FFT features (4): spectral_slope, slope_r_squared, high_freq_ratio, spectral_falloff
     - Eigenvalue features (8): eig_ratio_1_2, eig_ratio_2_3, eig_condition_number, eig_dominance,
                                 patch_ratio_mean, patch_ratio_std, patch_dominance_mean, patch_dominance_std
@@ -72,6 +74,8 @@ class FeatureExtractor:
     - Gradient features (5): gradient_mean, gradient_variance, gradient_kurtosis,
                               gradient_laplacian_mean, gradient_laplacian_variance
     - PatchCraft features (3): texture_contrast, texture_rich_mean, texture_poor_mean
+    - NPR features (6): npr_mean_abs, npr_std, npr_skewness, npr_kurtosis,
+                         npr_diag_axial_ratio, npr_energy_ratio
     - Screenshot image features (10): fft_periodic_score, fft_peak_to_bg_ratio,
                                        glcm_homogeneity, glcm_contrast, glcm_energy,
                                        lbp_entropy, wavelet_hh_energy, wavelet_ratio_hh_ll,
@@ -118,6 +122,9 @@ class FeatureExtractor:
         'gradient_laplacian_mean', 'gradient_laplacian_variance',
         # PatchCraft features (3)
         'texture_contrast', 'texture_rich_mean', 'texture_poor_mean',
+        # NPR features (6) — Tan et al. CVPR 2024, see code_notes/10-npr-analyzer.md
+        'npr_mean_abs', 'npr_std', 'npr_skewness', 'npr_kurtosis',
+        'npr_diag_axial_ratio', 'npr_energy_ratio',
         # Screenshot image forensics features (10) — Ng, Thongkamwitoon, Tan et al.
         'fft_periodic_score', 'fft_peak_to_bg_ratio',
         'glcm_homogeneity', 'glcm_contrast', 'glcm_energy',
@@ -223,7 +230,7 @@ class FeatureExtractor:
 
     def extract(self, image_path: str) -> np.ndarray:
         """
-        Extracts a 69-dimensional feature vector from a single image.
+        Extracts an 85-dimensional feature vector from a single image.
 
         Args:
             image_path: Path to the image file.
@@ -240,6 +247,7 @@ class FeatureExtractor:
         ela_features      = extract_ela_features(image_path)
         gradient_features = extract_gradient_features(image_path)
         patchcraft_features = extract_patchcraft_features(image_path)
+        npr_features      = extract_npr_features(image_path)
         screenshot_img_features = extract_screenshot_image_features(image_path)
         drift_features    = self._compute_drift_features(image_path)
 
@@ -253,6 +261,7 @@ class FeatureExtractor:
         all_features.update(ela_features)
         all_features.update(gradient_features)
         all_features.update(patchcraft_features)
+        all_features.update(npr_features)
         all_features.update(screenshot_img_features)
         all_features.update(drift_features)
 
@@ -343,6 +352,7 @@ class FeatureExtractor:
             'ela_score': ela_score(image_path),
             'gradient_score': gradient_score(image_path),
             'patchcraft_score': patchcraft_score(image_path),
+            'npr_score': npr_score(image_path),
             'screenshot_img_score': screenshot_image_score(image_path),
         }
 

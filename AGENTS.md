@@ -58,7 +58,8 @@ implementation / portfolio project, not a production service.
 - **Datasets (`data/`, not in the repo):** NOT redistributed and NOT covered by the MIT license.
   Sources include Unsplash (Unsplash License — free to use, but mass redistribution of unaltered
   copies is prohibited, which is one reason `data/` is gitignored), personal photos, and outputs
-  of various image generators whose terms differ. Rebuild your own copy via `scripts/`.
+  of various image generators whose terms differ. The dataset is shared by the owner on
+  request, on a per-case basis.
 - **Papers (`papers/`, not in the repo):** copyright of their authors/publishers; we link to
   arXiv instead of redistributing PDFs.
 

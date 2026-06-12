@@ -120,7 +120,7 @@ Real images have heavy-tailed edge distributions (real-world scene edges are sha
 **arXiv:2507.10236** | ITI-CERTH  
 **Status: ✅ IMPLEMENTED** — `augment_dataset_with_jpeg()` in `src/utils.py`, called during `python main.py --train`
 
-Built a dataset of 10,000 images from Facebook, Instagram, LinkedIn, and X. Key finding: current detectors lose >26% AUC on social-media-sourced images vs. clean benchmarks.
+Built a dataset of 10,000 images from Facebook, Instagram, LinkedIn, and X (native compression preserved; memes/screenshots/watermarked images filtered out). Key findings: detectors that excel on curated benchmarks degrade significantly in the wild, and naively scaling training data or model size does not fix it — but optimizing backbone, training-data composition, cropping (not resizing!), and augmentations together recovers **+26.87% average AUC**. (Note: earlier versions of this doc misquoted 26.87% as the *loss*; it is the *improvement*.)
 
 **What we implemented:** For each training image, add JPEG copies at Q=70 and Q=80 + a 0.75× downscaled copy (4× the base set — historical counts varied as the dataset grew; exact numbers will be re-recorded after the current retraining on the expanded dataset). Teaches the SVM that "JPEG-compressed Real photo ≠ AI". Files cleaned up via `cleanup_augmented_files()` after training.
 

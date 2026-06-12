@@ -94,8 +94,7 @@ For full training pipeline and data layout, see [WORKFLOW.md](WORKFLOW.md).
 ```
 aidetector/
 ├── src/              # 9 forensic analyzers + SVM classifiers
-├── scripts/          # Dataset download, screenshot generation, social-media scraping
-├── data/             # Training images (gitignored — rebuild via scripts/)
+├── data/             # Training images (not in the repo — available from the owner on request)
 ├── models/           # Trained SVM pickles
 ├── tests/            # Pytest suite
 ├── web/              # Frontend HTML
@@ -132,5 +131,5 @@ Full literature review: [RESEARCH.md](RESEARCH.md).
 ## License
 
 Code and trained models: MIT — see [LICENSE](LICENSE).
-Datasets (`data/`): NOT redistributed under MIT — rebuild via `scripts/`.
+Datasets (`data/`): NOT redistributed under MIT — available from the owner on request.
 Papers (`papers/`): copyright of their authors/publishers.
