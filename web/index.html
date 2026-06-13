@@ -4,1186 +4,413 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Image Detector</title>
-    <meta name="description" content="Find out if an image was made by an AI or taken by a real camera.">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
-        rel="stylesheet">
+    <title>Is this image AI-generated? — Free, private AI image detector</title>
+    <meta name="description"
+        content="Check whether a photo was made by an AI or taken by a real camera. Free, no sign-up. Your image is deleted the moment it's scanned — never stored, never used for training.">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="robots" content="index,follow">
+    <!-- System font stack: no external font request (faster + nothing leaves your browser). -->
     <style>
-        *,
-        *::before,
-        *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            --bg: #0a0e1a;
-            --bg2: #111827;
-            --card: #1a2035;
-            --card2: #1f2847;
-            --border: #2a3454;
-            --text: #f1f5f9;
-            --text2: #94a3b8;
-            --muted: #64748b;
-            --blue: #3b82f6;
-            --purple: #8b5cf6;
-            --cyan: #06b6d4;
-            --green: #10b981;
-            --green-bg: #10b98118;
-            --red: #ef4444;
-            --red-bg: #ef444418;
-            --yellow: #f59e0b;
-            --yellow-bg: #f59e0b18;
-            --orange: #f97316;
-            --amber: #d97706;
-            --amber-bg: #d9770610;
-            --grad: linear-gradient(135deg, #3b82f6, #8b5cf6);
-            --grad-real: linear-gradient(135deg, #10b981, #06b6d4);
-            --grad-ai: linear-gradient(135deg, #ef4444, #f97316);
-            --grad-ss: linear-gradient(135deg, #d97706, #f97316);
+            --bg: #f7f9fc;
+            --surface: #ffffff;
+            --line: #e6eaf0;
+            --ink: #0f172a;
+            --ink-soft: #475569;
+            --muted: #94a3b8;
+            --accent: #2563eb;
+            --accent-soft: #eff4ff;
+            /* semantic verdict colors — AI is neutral (not "bad"), so indigo not red */
+            --ai: #6366f1;
+            --ai-soft: #eef0fe;
+            --real: #15a34a;
+            --real-soft: #e9f7ef;
+            --unsure: #64748b;
+            --unsure-soft: #eef1f5;
+            --shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 8px 24px rgba(15, 23, 42, .06);
+            --radius: 16px;
+            --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
 
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: var(--font);
+            color: var(--ink);
             background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-            line-height: 1.6;
-        }
-
-        /* ─── Mode Selector ──────────────────── */
-        .mode-selector {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1.1rem;
-            background: var(--bg2);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 0.35rem;
-        }
-
-        .mode-btn {
-            flex: 1;
-            padding: 0.6rem 0.75rem;
-            border: none;
-            border-radius: 9px;
-            font-family: inherit;
-            font-size: 0.88rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.22s;
-            background: transparent;
-            color: var(--muted);
-        }
-
-        .mode-btn.active-normal {
-            background: var(--grad);
-            color: #fff;
-            box-shadow: 0 2px 12px rgba(59, 130, 246, .35);
-        }
-
-        .mode-btn.active-screenshot {
-            background: var(--grad-ss);
-            color: #fff;
-            box-shadow: 0 2px 12px rgba(217, 119, 6, .35);
-        }
-
-        /* amber tint on upload zone in screenshot mode */
-        body.ss-mode .upload-zone {
-            border-color: var(--amber);
-        }
-
-        body.ss-mode .upload-zone:hover {
-            box-shadow: 0 0 30px rgba(217, 119, 6, .2);
-        }
-
-        body.ss-mode .analyze-btn {
-            background: var(--grad-ss);
-        }
-
-        /* ─── Header ─────────────────────────── */
-        .header {
-            text-align: center;
-            padding: 2.5rem 1.5rem 1.8rem;
-        }
-
-        .header h1 {
-            font-size: 2rem;
-            font-weight: 800;
-            background: var(--grad);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            letter-spacing: -0.02em;
-        }
-
-        .header p {
-            color: var(--text2);
-            font-size: 0.95rem;
-            margin-top: 0.4rem;
-        }
-
-        .container {
-            max-width: 820px;
-            margin: 0 auto;
-            padding: 1.5rem 1.25rem 4rem;
-        }
-
-        /* ─── Upload Zone ─────────────────────── */
-        .upload-zone {
-            border: 2px dashed var(--border);
-            border-radius: 16px;
-            padding: 2.5rem 2rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
-            background: var(--bg2);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .upload-zone::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(circle at 50% 50%, rgba(59, 130, 246, .05), transparent 70%);
-            pointer-events: none;
-        }
-
-        .upload-zone:hover,
-        .upload-zone.dragover {
-            border-color: var(--blue);
-            background: var(--card);
-            box-shadow: 0 0 30px rgba(59, 130, 246, .12);
-        }
-
-        .upload-icon {
-            font-size: 2.8rem;
-            margin-bottom: 0.8rem;
-            opacity: .65;
-        }
-
-        .upload-zone h3 {
-            font-size: 1.05rem;
-            font-weight: 600;
-            margin-bottom: 0.3rem;
-        }
-
-        .upload-zone p {
-            color: var(--muted);
-            font-size: 0.82rem;
-        }
-
-        .upload-tip {
-            display: inline-block;
-            margin-top: 0.55rem;
-            font-size: 0.75rem;
-            color: var(--amber);
-            background: var(--amber-bg);
-            border: 1px solid #d9770628;
-            border-radius: 7px;
-            padding: 0.28rem 0.75rem;
-        }
-
-        .browse-btn {
-            display: inline-block;
-            margin-top: 0.9rem;
-            padding: 0.55rem 1.4rem;
-            background: var(--grad);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform .2s, box-shadow .2s;
-        }
-
-        .browse-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 8px 20px rgba(59, 130, 246, .3);
-        }
-
-        #fileInput {
-            display: none;
-        }
-
-        /* ─── Preview ─────────────────────────── */
-        .preview-area {
-            display: none;
-            margin-top: 1.25rem;
-            border-radius: 12px;
-            overflow: hidden;
-            background: var(--bg2);
-            border: 1px solid var(--border);
-        }
-
-        .preview-area.visible {
-            display: block;
-        }
-
-        .preview-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0.7rem 1rem;
-            background: var(--card);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .preview-filename {
-            font-size: 0.82rem;
-            font-weight: 500;
-            color: var(--text2);
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            max-width: 60%;
-        }
-
-        .preview-size {
-            font-size: 0.72rem;
-            color: var(--muted);
-        }
-
-        .preview-img-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 1rem;
-            max-height: 320px;
-            overflow: hidden;
-        }
-
-        .preview-img-container img {
-            max-width: 100%;
-            max-height: 290px;
-            border-radius: 8px;
-            object-fit: contain;
-        }
-
-        /* ─── Analyze Button ──────────────────── */
-        .analyze-btn {
-            display: none;
-            width: 100%;
-            margin-top: 0.9rem;
-            padding: 0.85rem;
-            background: var(--grad);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .analyze-btn.visible {
-            display: block;
-        }
-
-        .analyze-btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 30px rgba(59, 130, 246, .35);
-        }
-
-        .analyze-btn:disabled {
-            opacity: .55;
-            cursor: not-allowed;
-        }
-
-        /* ─── Loading ─────────────────────────── */
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 2rem;
-            margin-top: 1.5rem;
-        }
-
-        .loading.visible {
-            display: block;
-        }
-
-        .spinner {
-            width: 38px;
-            height: 38px;
-            border: 3px solid var(--border);
-            border-top-color: var(--blue);
-            border-radius: 50%;
-            animation: spin .8s linear infinite;
-            margin: 0 auto 0.9rem;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .loading p {
-            color: var(--text2);
-            font-size: 0.88rem;
-        }
-
-        /* ─── Results ─────────────────────────── */
-        .results {
-            display: none;
-            margin-top: 1.5rem;
-            animation: fadeUp .45s ease;
-        }
-
-        .results.visible {
-            display: block;
-        }
-
-        @keyframes fadeUp {
-            from {
-                opacity: 0;
-                transform: translateY(14px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* ─── Screenshot Warning ──────────────── */
-        .screenshot-warning {
-            display: none;
-            background: #78350f18;
-            border: 1px solid #d9770640;
-            border-left: 4px solid var(--orange);
-            border-radius: 10px;
-            padding: 1rem 1.1rem;
-            margin-bottom: 1rem;
-            font-size: 0.87rem;
-        }
-
-        .screenshot-warning.visible {
-            display: block;
-        }
-
-        .screenshot-warning strong {
-            display: block;
-            color: var(--orange);
-            font-size: 0.9rem;
-            margin-bottom: 0.3rem;
-        }
-
-        .screenshot-warning span {
-            color: var(--text2);
-        }
-
-        /* ─── Verdict Card ────────────────────── */
-        .verdict-card {
-            border-radius: 16px;
-            padding: 2rem;
-            text-align: center;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, .4);
-            position: relative;
-            overflow: hidden;
-            margin-bottom: 1rem;
-        }
-
-        .verdict-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-        }
-
-        .verdict-card.real {
-            background: var(--card);
-            border: 1px solid #10b98130;
-        }
-
-        .verdict-card.real::before {
-            background: var(--grad-real);
-        }
-
-        .verdict-card.ai {
-            background: var(--card);
-            border: 1px solid #ef444440;
-        }
-
-        .verdict-card.ai::before {
-            background: var(--grad-ai);
-        }
-
-        .verdict-card.uncertain {
-            background: var(--card);
-            border: 1px solid #f59e0b40;
-        }
-
-        .verdict-card.uncertain::before {
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-        }
-
-        .verdict-emoji {
-            font-size: 2.4rem;
-            margin-bottom: 0.4rem;
-        }
-
-        .verdict-label {
-            font-size: 1.55rem;
-            font-weight: 800;
-            letter-spacing: -.01em;
-        }
-
-        .verdict-card.real .verdict-label {
-            color: var(--green);
-        }
-
-        .verdict-card.ai .verdict-label {
-            color: var(--red);
-        }
-
-        .verdict-card.uncertain .verdict-label {
-            color: var(--yellow);
-        }
-
-        .verdict-confidence {
-            font-size: 0.88rem;
-            color: var(--text2);
-            margin-top: 0.25rem;
-        }
-
-        .verdict-plain {
-            margin-top: 0.8rem;
-            padding: 0.7rem 1rem;
-            border-radius: 8px;
-            font-size: 0.87rem;
-            line-height: 1.5;
-        }
-
-        .verdict-card.real .verdict-plain {
-            background: var(--green-bg);
-            color: #6ee7b7;
-        }
-
-        .verdict-card.ai .verdict-plain {
-            background: var(--red-bg);
-            color: #fca5a5;
-        }
-
-        .verdict-card.uncertain .verdict-plain {
-            background: var(--yellow-bg);
-            color: #fcd34d;
-        }
-
-        .verdict-meta {
-            display: flex;
-            justify-content: center;
-            gap: 1.5rem;
-            margin-top: 0.75rem;
-            font-size: 0.72rem;
-            color: var(--muted);
-        }
-
-        /* ─── Analyzer Cards ──────────────────── */
-        .section-title {
-            font-size: 0.72rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: .09em;
-            color: var(--muted);
-            margin: 1.25rem 0 0.6rem;
-        }
-
-        .analyzer-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 0.65rem;
-        }
-
-        @media (max-width: 560px) {
-            .analyzer-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .acard {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1rem 1.1rem;
-            transition: border-color .25s;
-        }
-
-        .acard:hover {
-            border-color: var(--blue);
-        }
-
-        .acard-top {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 0.5rem;
-        }
-
-        .acard-icon {
-            font-size: 1.3rem;
-            flex-shrink: 0;
-            margin-top: 1px;
-        }
-
-        .acard-info {
-            flex: 1;
-        }
-
-        .acard-name {
-            font-size: 0.82rem;
-            font-weight: 700;
-            color: var(--text);
-            margin-bottom: 0.05rem;
-        }
-
-        .acard-what {
-            font-size: 0.74rem;
-            color: var(--muted);
-            line-height: 1.4;
-        }
-
-        .acard-result {
-            text-align: right;
-            flex-shrink: 0;
-        }
-
-        .acard-verdict {
-            font-size: 0.78rem;
-            font-weight: 700;
-            padding: 0.2rem 0.55rem;
-            border-radius: 6px;
-            white-space: nowrap;
-        }
-
-        .acard-verdict.pass {
-            background: var(--green-bg);
-            color: var(--green);
-        }
-
-        .acard-verdict.warn {
-            background: var(--yellow-bg);
-            color: var(--yellow);
-        }
-
-        .acard-verdict.fail {
-            background: var(--red-bg);
-            color: var(--red);
-        }
-
-        .acard-bar-wrap {
-            margin-top: 0.7rem;
-            height: 5px;
-            background: var(--bg);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .acard-bar {
-            height: 100%;
-            border-radius: 4px;
-            transition: width .8s ease;
-        }
-
-        .acard-bar.pass {
-            background: var(--green);
-        }
-
-        .acard-bar.warn {
-            background: var(--yellow);
-        }
-
-        .acard-bar.fail {
-            background: var(--red);
-        }
-
-        .acard-meaning {
-            margin-top: 0.55rem;
-            font-size: 0.74rem;
-            color: var(--text2);
-            line-height: 1.45;
-        }
-
-        /* ─── Expert Details Panel ────────────── */
-        .details-toggle {
-            display: block;
-            width: 100%;
-            margin-top: 1rem;
-            padding: 0.65rem;
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            color: var(--text2);
-            font-size: 0.82rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all .2s;
-            font-family: inherit;
-        }
-
-        .details-toggle:hover {
-            background: var(--card2);
-            color: var(--text);
-        }
-
-        .details-panel {
-            display: none;
-            margin-top: 0.65rem;
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1.1rem;
-            animation: fadeUp .3s ease;
-        }
-
-        .details-panel.visible {
-            display: block;
-        }
-
-        .details-note {
-            font-size: 0.76rem;
-            color: var(--muted);
-            margin-bottom: 0.9rem;
-            line-height: 1.4;
-            background: rgba(59, 130, 246, .07);
-            border-radius: 8px;
-            padding: 0.55rem 0.75rem;
-        }
-
-        .dsection {
-            margin-bottom: 0.9rem;
-        }
-
-        .dsection-title {
-            font-size: 0.72rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: .07em;
-            color: var(--blue);
-            margin-bottom: 0.4rem;
-        }
-
-        .drow {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            padding: 0.22rem 0;
-            font-size: 0.78rem;
-            border-bottom: 1px solid #ffffff06;
-        }
-
-        .drow .dkey {
-            color: var(--text2);
-            flex: 1;
-        }
-
-        .drow .dval {
-            color: var(--text);
-            font-weight: 500;
-            margin-left: 0.75rem;
-        }
-
-        .drow .dtip {
-            color: var(--muted);
-            font-size: 0.68rem;
-            margin-left: 0.5rem;
-            font-style: italic;
-        }
-
-        /* ─── Error ───────────────────────────── */
-        .error-msg {
-            display: none;
-            margin-top: 1rem;
-            padding: 0.9rem 1rem;
-            background: var(--red-bg);
-            border: 1px solid #ef444435;
-            border-radius: 10px;
-            color: var(--red);
-            font-size: 0.84rem;
-        }
-
-        .error-msg.visible {
-            display: block;
-        }
+            line-height: 1.55;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+        a { color: var(--accent); }
+
+        /* Header */
+        header {
+            border-bottom: 1px solid var(--line);
+            background: var(--surface);
+        }
+        .bar { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; }
+        .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; }
+        .brand .dot { width: 22px; height: 22px; border-radius: 7px; background: var(--accent);
+            display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; }
+        .nav { font-size: 14px; color: var(--ink-soft); }
+        .nav a { text-decoration: none; margin-left: 18px; }
+        .nav a:hover { text-decoration: underline; }
+
+        /* Hero */
+        .hero { text-align: center; padding: 56px 0 28px; }
+        h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.15; letter-spacing: -.02em; }
+        .sub { color: var(--ink-soft); font-size: 18px; margin: 14px auto 0; max-width: 540px; }
+
+        /* Uploader */
+        .drop {
+            margin-top: 30px; background: var(--surface); border: 2px dashed var(--line);
+            border-radius: var(--radius); padding: 40px 24px; cursor: pointer;
+            transition: border-color .15s, background .15s; text-align: center;
+        }
+        .drop:hover, .drop:focus-visible, .drop.over {
+            border-color: var(--accent); background: var(--accent-soft); outline: none;
+        }
+        .drop .icon { font-size: 30px; }
+        .drop h2 { font-size: 18px; margin: 10px 0 4px; }
+        .drop p { color: var(--muted); font-size: 14px; }
+        .drop .btn {
+            display: inline-block; margin-top: 16px; background: var(--accent); color: #fff;
+            padding: 11px 22px; border-radius: 10px; font-weight: 600; font-size: 15px;
+        }
+
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 8px; margin-top: 16px;
+            font-size: 13px; color: var(--ink-soft); background: var(--real-soft);
+            border: 1px solid #cfe9d8; padding: 8px 14px; border-radius: 999px;
+        }
+        .privacy-badge svg { flex: none; }
+
+        /* Result card */
+        #result { margin-top: 22px; display: none; }
+        .card {
+            background: var(--surface); border: 1px solid var(--line);
+            border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden;
+        }
+        .preview-row { display: flex; gap: 16px; padding: 18px; border-bottom: 1px solid var(--line); align-items: center; }
+        .preview-row img { width: 76px; height: 76px; object-fit: cover; border-radius: 12px; border: 1px solid var(--line); }
+        .verdict-block { flex: 1; min-width: 0; }
+        .pill {
+            display: inline-flex; align-items: center; gap: 7px; font-weight: 700; font-size: 15px;
+            padding: 6px 13px; border-radius: 999px;
+        }
+        .pill.ai { background: var(--ai-soft); color: var(--ai); }
+        .pill.real { background: var(--real-soft); color: var(--real); }
+        .pill.unsure { background: var(--unsure-soft); color: var(--unsure); }
+        .conf-label { font-size: 13px; color: var(--muted); margin-top: 8px; }
+
+        .meter { padding: 0 18px 18px; }
+        .meter .track { height: 10px; background: #eef1f6; border-radius: 999px; overflow: hidden; margin-top: 4px; }
+        .meter .fill { height: 100%; border-radius: 999px; transition: width .5s ease; }
+        .meter .scale { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+        .why { padding: 4px 18px 18px; }
+        .why h3 { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 8px; }
+        .why ul { list-style: none; }
+        .why li { display: flex; gap: 10px; padding: 5px 0; font-size: 15px; color: var(--ink-soft); }
+        .why li::before { content: "•"; color: var(--accent); font-weight: 700; }
+        .humility { font-size: 13px; color: var(--muted); padding: 0 18px 16px; font-style: italic; }
+        .note { margin: 0 18px 16px; padding: 10px 13px; border-radius: 10px; font-size: 13px; }
+        .note.info { background: #fff8e6; border: 1px solid #f5e3a8; color: #7a5d00; }
+
+        details.detail { border-top: 1px solid var(--line); }
+        details.detail summary { padding: 14px 18px; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--ink-soft); list-style: none; }
+        details.detail summary::-webkit-details-marker { display: none; }
+        details.detail summary::after { content: " ▾"; color: var(--muted); }
+        details.detail[open] summary::after { content: " ▴"; }
+        .bars { padding: 0 18px 18px; display: grid; gap: 10px; }
+        .barrow { font-size: 13px; }
+        .barrow .lab { display: flex; justify-content: space-between; color: var(--ink-soft); margin-bottom: 3px; }
+        .barrow .t { height: 6px; background: #eef1f6; border-radius: 999px; overflow: hidden; }
+        .barrow .f { height: 100%; background: var(--muted); border-radius: 999px; }
+
+        /* Loading / error */
+        .status { text-align: center; padding: 26px; color: var(--ink-soft); font-size: 15px; }
+        .spinner { width: 26px; height: 26px; border: 3px solid var(--line); border-top-color: var(--accent);
+            border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 12px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .err { color: #b42318; }
+
+        /* Content sections */
+        section.block { padding: 44px 0; border-top: 1px solid var(--line); }
+        section.block h2 { font-size: 22px; letter-spacing: -.01em; margin-bottom: 18px; }
+        .steps { display: grid; gap: 16px; }
+        @media (min-width: 620px) { .steps { grid-template-columns: repeat(3, 1fr); } }
+        .step { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+        .step .n { width: 26px; height: 26px; border-radius: 8px; background: var(--accent-soft); color: var(--accent);
+            display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; margin-bottom: 10px; }
+        .step h3 { font-size: 15px; margin-bottom: 4px; }
+        .step p { font-size: 14px; color: var(--ink-soft); }
+
+        .faq dt { font-weight: 600; margin-top: 16px; }
+        .faq dd { color: var(--ink-soft); margin-top: 4px; }
+
+        footer { border-top: 1px solid var(--line); padding: 28px 0 48px; color: var(--muted); font-size: 13px; text-align: center; }
+
+        .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
     </style>
 </head>
 
 <body>
-
-    <div class="header">
-        <h1>🔍 AI Image Detector</h1>
-        <p>Upload any image to find out if it was made by an AI or captured by a real camera</p>
-    </div>
-
-    <div class="container">
-
-        <!-- Mode Selector -->
-        <div class="mode-selector" id="modeSelector">
-            <button class="mode-btn active-normal" id="modeNormal" onclick="setMode('normal')">
-                📷 Downloaded / Camera Image
-            </button>
-            <button class="mode-btn" id="modeScreenshot" onclick="setMode('screenshot')">
-                📱 Screenshot
-                <span style="display:block;font-size:0.72rem;font-weight:400;margin-top:2px;opacity:0.75;">⚠️ Not for video frame captures (Reels, TikTok, YouTube)</span>
-            </button>
+    <header>
+        <div class="wrap bar">
+            <div class="brand"><span class="dot">✓</span> Is it AI?</div>
+            <nav class="nav">
+                <a href="#how">How it works</a>
+                <a href="#privacy">Privacy</a>
+                <a href="#faq">FAQ</a>
+            </nav>
         </div>
+    </header>
 
-        <!-- Upload Zone -->
-        <div class="upload-zone" id="uploadZone">
-            <div class="upload-icon">📸</div>
-            <h3>Drop an image here</h3>
-            <p>Supports JPEG, PNG, WebP &bull; Max 10 MB</p>
-            <div class="upload-tip">✂️ For best accuracy, crop the image to show <strong>only the subject</strong> —
-                remove browser chrome, watermarks, or social media overlays</div>
-            <button class="browse-btn" onclick="document.getElementById('fileInput').click()">Browse Files</button>
-            <input type="file" id="fileInput" accept=".jpg,.jpeg,.png,.webp">
-        </div>
+    <main class="wrap">
+        <div class="hero">
+            <h1>Is this image AI-generated?</h1>
+            <p class="sub">Drop in a photo and we'll estimate whether it was made by an AI image
+                generator or captured by a real camera — and tell you why, in plain language.</p>
 
-        <!-- Preview -->
-        <div class="preview-area" id="previewArea">
-            <div class="preview-header">
-                <span class="preview-filename" id="previewFilename"></span>
-                <span class="preview-size" id="previewSize"></span>
+            <div class="drop" id="drop" tabindex="0" role="button"
+                aria-label="Upload an image to check. Drag and drop or press Enter to browse.">
+                <div class="icon" aria-hidden="true">🖼️</div>
+                <h2>Drop an image here</h2>
+                <p>or click to choose &middot; JPG, PNG, WebP &middot; up to 10 MB</p>
+                <span class="btn">Choose image</span>
+                <input type="file" id="file" accept="image/png,image/jpeg,image/webp" class="visually-hidden">
             </div>
-            <div class="preview-img-container">
-                <img id="previewImg" src="" alt="Preview">
+
+            <div class="privacy-badge">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                Deleted the moment it's scanned · never stored · never used for training
             </div>
         </div>
 
-        <!-- Analyze Button -->
-        <button class="analyze-btn" id="analyzeBtn" onclick="analyzeImage()">🔍 Analyze Image</button>
+        <div id="result" aria-live="polite"></div>
 
-        <!-- Loading -->
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p>Running 8 detection checks… this takes about 10–15 seconds</p>
-        </div>
-
-        <!-- Error -->
-        <div class="error-msg" id="errorMsg"></div>
-
-        <!-- Results -->
-        <div class="results" id="results">
-
-            <!-- Screenshot Warning -->
-            <div class="screenshot-warning" id="screenshotWarning">
-                <strong>⚠️ This looks like a screenshot</strong>
-                <span id="screenshotWarningText"></span>
-            </div>
-
-            <!-- Verdict -->
-            <div class="verdict-card" id="verdictCard">
-                <div class="verdict-emoji" id="verdictEmoji"></div>
-                <div class="verdict-label" id="verdictLabel"></div>
-                <div class="verdict-confidence" id="verdictConfidence"></div>
-                <div class="verdict-plain" id="verdictPlain"></div>
-                <div class="verdict-meta" id="verdictMeta"></div>
-            </div>
-
-            <!-- 8 Analyzer Cards -->
-            <p class="section-title">What the 8 checks found</p>
-            <div class="analyzer-grid" id="analyzerGrid">
-                <!-- populated by JS -->
-            </div>
-
-            <!-- Expert Details Panel -->
-            <button class="details-toggle" id="detailsToggle" onclick="toggleDetails()">
-                🔬 Show raw expert numbers
-            </button>
-            <div class="details-panel" id="detailsPanel">
-                <div class="details-note">
-                    These are the raw measurements used by the AI detector.
-                    You don't need to understand these to use the tool — they're here for researchers and developers.
+        <section class="block" id="how">
+            <h2>How it works</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="n">1</div>
+                    <h3>You drop an image</h3>
+                    <p>It's sent over an encrypted connection and held only in temporary memory for the scan.</p>
                 </div>
-                <div id="detailsInner"></div>
+                <div class="step">
+                    <div class="n">2</div>
+                    <h3>We read the clues</h3>
+                    <p>The scanner inspects texture, noise, sharpness, colour and frequency patterns that differ
+                        between real cameras and AI generators.</p>
+                </div>
+                <div class="step">
+                    <div class="n">3</div>
+                    <h3>You get a verdict</h3>
+                    <p>A clear estimate with a confidence level and the plain-language signals behind it — then your
+                        image is deleted.</p>
+                </div>
             </div>
-        </div>
-    </div>
+        </section>
+
+        <section class="block" id="privacy">
+            <h2>Your privacy</h2>
+            <p style="color:var(--ink-soft);max-width:620px">
+                We built this to be used without a second thought. There's <strong>no account and no sign-up</strong>.
+                Your image is written to temporary storage only for the few seconds the scan runs, then
+                <strong>permanently deleted</strong> — it is never saved to a database, never logged, and
+                <strong>never used to train any model</strong>. We can't look at it after the scan because it no
+                longer exists.
+            </p>
+        </section>
+
+        <section class="block faq" id="faq">
+            <h2>Questions</h2>
+            <dl>
+                <dt>Is it free?</dt>
+                <dd>Yes — free, with no account or sign-up.</dd>
+                <dt>Do you keep my photos?</dt>
+                <dd>No. Each upload is deleted the moment the scan finishes. Nothing is stored, logged, or used for
+                    training.</dd>
+                <dt>How accurate is it?</dt>
+                <dd>It reliably flags mainstream AI generators and real photos, and holds up on social-media and
+                    screenshot images. It's an estimate, not proof — newer "flow-style" generators are harder, so
+                    always use your own judgment too.</dd>
+                <dt>What can it detect?</dt>
+                <dd>Fully AI-generated images from common tools (Stable Diffusion, DALL·E, Midjourney, Firefly,
+                    and chat-AI image makers). It is not a deepfake/face-swap or photo-edit detector.</dd>
+            </dl>
+        </section>
+    </main>
+
+    <footer class="wrap">
+        Free &amp; private · no sign-up · images deleted after scanning. This tool gives an estimate, not legal proof.
+    </footer>
 
     <script>
-        // ── Analyzer metadata: plain-English names, descriptions, meanings ──────
-        const ANALYZERS = [
-            {
-                key: 'fft',
-                icon: '🌊',
-                name: 'Light & Frequency Patterns',
-                what: 'Checks how light energy is spread across the image — real photos have a natural dimming at fine details.',
-                meaning: {
-                    pass: 'The light pattern looks natural — matches what a real camera produces.',
-                    warn: 'Light pattern is slightly unusual but not conclusive.',
-                    fail: 'Light drops off unnaturally — a common sign of AI image generation.',
-                },
-            },
-            {
-                key: 'eigenvalue',
-                icon: '🎨',
-                name: 'Color Statistics',
-                what: 'Examines how the red, green, and blue channels relate to each other — real photos have a distinctive color fingerprint.',
-                meaning: {
-                    pass: 'Color relationships look natural, consistent with a real photograph.',
-                    warn: 'Color statistics are slightly off but inconclusive.',
-                    fail: 'Color channel relationships deviate from natural photo patterns.',
-                },
-            },
-            {
-                key: 'metadata',
-                icon: '🏷️',
-                name: 'Camera Information',
-                what: 'Looks for hidden camera data (EXIF) — real photos contain info like camera model, lens, and GPS.',
-                meaning: {
-                    pass: 'Camera data found — this image carries real photograph metadata.',
-                    warn: 'Some camera data present but not complete.',
-                    fail: 'No camera data — AI images and screenshots never have this.',
-                },
-            },
-            {
-                key: 'noise',
-                icon: '🌫️',
-                name: 'Camera Grain / Sensor Noise',
-                what: 'Every real camera adds a tiny, unique pattern of electronic noise to its photos. AI generators don\'t.',
-                meaning: {
-                    pass: 'Natural sensor noise detected — matches real camera output.',
-                    warn: 'Noise pattern is unusual but not clearly AI.',
-                    fail: 'Noise pattern is too clean or too regular — AI images and screenshots often show this.',
-                },
-            },
-            {
-                key: 'dct',
-                icon: '🧩',
-                name: 'JPEG Compression Fingerprint',
-                what: 'When a photo is saved to JPEG, it leaves a distinctive grid pattern. This check reads that fingerprint.',
-                meaning: {
-                    pass: 'JPEG patterns match normal camera compression history.',
-                    warn: 'Compression history is slightly unusual.',
-                    fail: 'JPEG block patterns match AI image output or non-camera sources.',
-                },
-            },
-            {
-                key: 'ela',
-                icon: '🕵️',
-                name: 'Edit & Manipulation Check',
-                what: 'Re-compresses the image and looks for areas that respond differently — edited or AI regions stand out.',
-                meaning: {
-                    pass: 'Compression response is even — no signs of editing or AI generation.',
-                    warn: 'Some compression irregularities found but inconclusive.',
-                    fail: 'Uneven compression response — may indicate AI generation or heavy editing.',
-                },
-            },
-            {
-                key: 'gradient',
-                icon: '📐',
-                name: 'Edge Sharpness Distribution',
-                what: 'Real scenes have a mix of soft and sharp edges. AI images often have unusually uniform edge sharpness.',
-                meaning: {
-                    pass: 'Edge sharpness varies naturally, as expected in real photographs.',
-                    warn: 'Edge distribution is slightly atypical.',
-                    fail: 'Edge sharpness is too uniform — a common artifact of AI generators.',
-                },
-            },
-            {
-                key: 'patchcraft',
-                icon: '🔬',
-                name: 'Texture Consistency',
-                what: 'Compares highly-textured areas (like grass or fabric) with smooth areas (like sky). AI images have an unusual gap between these.',
-                meaning: {
-                    pass: 'Texture contrast between rough and smooth areas looks natural.',
-                    warn: 'Texture contrast is slightly elevated.',
-                    fail: 'Unusually high gap between rough and smooth areas — a known AI generation artifact.',
-                },
-            },
-            {
-                key: 'screenshot_img',
-                icon: '📱',
-                name: 'Screenshot Forensics',
-                what: 'Analyses texture regularity (GLCM), wavelet energy, edge patterns (LBP), and spectral slope — signals that survive the display-pipeline of a screenshot.',
-                meaning: {
-                    pass: 'Screenshot texture looks like a real desktop/app interface.',
-                    warn: 'Screenshot texture is ambiguous.',
-                    fail: 'Screenshot texture patterns match AI-generated image screenshots.',
-                },
-            },
-        ];
+        const drop = document.getElementById('drop');
+        const fileInput = document.getElementById('file');
+        const result = document.getElementById('result');
 
-        // Expert key → plain label + tip
-        const KEY_LABELS = {
-            spectral_slope: { label: 'Frequency slope', tip: 'How fast brightness drops at fine detail' },
-            slope_r_squared: { label: 'Slope quality', tip: 'How well it fits a power law' },
-            high_freq_ratio: { label: 'Fine detail energy', tip: 'How much energy is in tiny details' },
-            spectral_falloff: { label: 'Frequency cutoff', tip: 'Where fine detail disappears' },
-            eig_ratio_1_2: { label: 'Color dominance ratio', tip: 'How much one color channel dominates' },
-            eig_ratio_2_3: { label: 'Secondary color ratio', tip: 'Balance of the other two channels' },
-            eig_dominance: { label: 'Channel dominance', tip: 'Strong = one color overpowers others' },
-            has_exif: { label: 'Has EXIF data', tip: '1 = yes (real camera), 0 = no' },
-            has_camera_make: { label: 'Has camera brand', tip: 'e.g. Apple, Canon' },
-            has_camera_model: { label: 'Has camera model', tip: 'e.g. iPhone 15, EOS R5' },
-            has_gps: { label: 'Has GPS location', tip: '1 = location was embedded' },
-            has_datetime: { label: 'Has timestamp', tip: '1 = photo date/time present' },
-            noise_std: { label: 'Sensor noise level', tip: 'Higher = more natural camera grain' },
-            noise_mean: { label: 'Avg. noise value', tip: 'Should be near zero for cameras' },
-            texture_rich_mean: { label: 'Avg. texture richness', tip: 'How busy the busiest areas are' },
-            texture_poor_mean: { label: 'Avg. smooth area', tip: 'How flat the smoothest areas are' },
-            texture_contrast: { label: 'Texture gap', tip: 'Difference between rough and smooth' },
-            // Screenshot SVM features
-            screenshot_svm_score: { label: 'Screenshot SVM score', tip: 'Raw P(AI) from dedicated screenshot model' },
-            glcm_homogeneity_d1: { label: 'GLCM homogeneity (d=1)', tip: 'Texture smoothness at 1-pixel distance' },
-            glcm_homogeneity_d3: { label: 'GLCM homogeneity (d=3)', tip: 'Texture smoothness at 3-pixel distance' },
-            glcm_homogeneity_d7: { label: 'GLCM homogeneity (d=7)', tip: 'Texture smoothness at 7-pixel distance' },
-            glcm_contrast_d1: { label: 'GLCM contrast (d=1)', tip: 'Intensity variation at 1-pixel distance — high in UI text' },
-            glcm_contrast_d3: { label: 'GLCM contrast (d=3)', tip: 'Intensity variation at 3-pixel distance' },
-            glcm_contrast_d7: { label: 'GLCM contrast (d=7)', tip: 'Intensity variation at 7-pixel distance' },
-            wavelet_hh_l1: { label: 'Wavelet diagonal energy (L1)', tip: 'Diagonal detail — sharp UI edges score high' },
-            wavelet_hh_l2: { label: 'Wavelet diagonal energy (L2)', tip: 'Mid-scale diagonal detail' },
-            wavelet_hh_l3: { label: 'Wavelet diagonal energy (L3)', tip: 'Coarse-scale diagonal detail' },
-            lbp_entropy_r1: { label: 'LBP entropy (r=1)', tip: 'Micro-texture grain entropy; high = complex surface' },
-            lbp_entropy_r2: { label: 'LBP entropy (r=2)', tip: 'Macro-texture grain entropy' },
-            fft_radial_slope: { label: 'FFT radial slope', tip: 'High-frequency falloff; AI VAE bottleneck flattens this' },
-            hist_bimodality: { label: 'Histogram bimodality', tip: 'UI screenshots = dark bg + bright text = bimodal; AI images = bell-curve' },
-            hist_peak_valley: { label: 'Histogram peak/valley', tip: 'Ratio of peak to trough — measures same bimodal pattern' },
-            chroma_std_ratio: { label: 'Chroma std ratio', tip: 'Colour channel imbalance between R, G, B noise levels' },
+        drop.addEventListener('click', () => fileInput.click());
+        drop.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+        });
+        fileInput.addEventListener('change', () => { if (fileInput.files[0]) handle(fileInput.files[0]); });
+
+        ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => {
+            e.preventDefault(); drop.classList.add('over');
+        }));
+        ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => {
+            e.preventDefault(); drop.classList.remove('over');
+        }));
+        drop.addEventListener('drop', e => {
+            const f = e.dataTransfer.files[0];
+            if (f) handle(f);
+        });
+
+        const MAX = 10 * 1024 * 1024;
+        const OK = ['image/jpeg', 'image/png', 'image/webp'];
+
+        function handle(file) {
+            if (!OK.includes(file.type)) return showError("Please use a JPG, PNG, or WebP image.");
+            if (file.size > MAX) return showError("That image is over 10 MB. Try a smaller one.");
+            scan(file);
+        }
+
+        function loading(previewUrl) {
+            result.style.display = 'block';
+            result.innerHTML =
+                `<div class="card"><div class="status"><div class="spinner"></div>Scanning your image…</div></div>`;
+            result.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function showError(msg) {
+            result.style.display = 'block';
+            result.innerHTML = `<div class="card"><div class="status err">${msg}</div></div>`;
+        }
+
+        async function scan(file) {
+            const previewUrl = URL.createObjectURL(file);
+            loading(previewUrl);
+            const fd = new FormData();
+            fd.append('file', file);
+            try {
+                const r = await fetch('/api/detect', { method: 'POST', body: fd });
+                if (r.status === 503) return showError("The detector isn't loaded yet. Please try again shortly.");
+                if (!r.ok) {
+                    const e = await r.json().catch(() => ({}));
+                    return showError(e.detail || "Something went wrong scanning that image.");
+                }
+                render(await r.json(), previewUrl);
+            } catch (err) {
+                showError("Couldn't reach the scanner. Check your connection and try again.");
+            }
+        }
+
+        // Plain-language signals. Each analyzer score is 0–1, higher = more AI-like.
+        // Metadata + screenshot scores are deliberately excluded (not reliable AI cues).
+        const SIGNALS = {
+            npr:        ['fine detail looks artificially smooth, typical of AI upscaling',
+                         'fine detail looks naturally captured'],
+            noise:      ['the natural sensor grain a camera leaves is missing or too uniform',
+                         'natural camera noise and grain are present'],
+            fft:        ['frequency patterns match those left by AI image generators',
+                         'frequency patterns look like a real photograph'],
+            patchcraft: ['texture is unusually consistent across the whole image',
+                         'texture varies naturally across the image'],
+            gradient:   ['edges are unusually clean and uniform',
+                         'edge sharpness looks natural'],
+            dct:        ['compression patterns look synthetic',
+                         'compression patterns look like an ordinary photo'],
+            eigenvalue: ['the colour structure looks synthetic',
+                         'the colour structure looks natural'],
+            ela:        ['re-save traces look synthetic',
+                         're-save traces look like a normal photo'],
         };
 
-        function labelFor(key) {
-            const entry = KEY_LABELS[key];
-            return entry ? { label: entry.label, tip: entry.tip } : { label: key.replace(/_/g, ' '), tip: '' };
+        function reasons(scores, leanAI) {
+            // pick the analyzers most strongly agreeing with the verdict direction
+            const items = Object.keys(SIGNALS)
+                .filter(k => k in scores)
+                .map(k => ({ k, s: scores[k] }))
+                .sort((a, b) => leanAI ? b.s - a.s : a.s - b.s)
+                .filter(x => leanAI ? x.s > 0.5 : x.s < 0.5)
+                .slice(0, 3)
+                .map(x => SIGNALS[x.k][leanAI ? 0 : 1]);
+            return items;
         }
 
-        // ── File handling ─────────────────────────────────────────────────────
-        let selectedFile = null;
-        let currentMode = 'normal';
+        function render(d, previewUrl) {
+            const pAI = (d.probability_ai ?? 50) / 100;   // app returns 0–100
+            let state, cls, pill;
+            if (pAI >= 0.60) { state = 'Likely AI-generated'; cls = 'ai'; }
+            else if (pAI <= 0.40) { state = 'Likely a real photo'; cls = 'real'; }
+            else { state = 'Not sure — this one is borderline'; cls = 'unsure'; }
 
-        function setMode(mode) {
-            currentMode = mode;
-            const normalBtn = document.getElementById('modeNormal');
-            const ssBtn = document.getElementById('modeScreenshot');
-            if (mode === 'screenshot') {
-                normalBtn.className = 'mode-btn';
-                ssBtn.className = 'mode-btn active-screenshot';
-                document.body.classList.add('ss-mode');
+            const dist = Math.abs(pAI - 0.5);
+            const conf = dist >= 0.35 ? 'High' : dist >= 0.18 ? 'Medium' : 'Low';
+            const fillColor = cls === 'ai' ? 'var(--ai)' : cls === 'real' ? 'var(--real)' : 'var(--unsure)';
+            const pct = Math.round(pAI * 100);
+
+            const leanAI = pAI >= 0.5;
+            let why;
+            if (cls === 'unsure') {
+                why = ["the signals are mixed — some look AI, some look real, so we can't call it confidently"];
             } else {
-                normalBtn.className = 'mode-btn active-normal';
-                ssBtn.className = 'mode-btn';
-                document.body.classList.remove('ss-mode');
-            }
-            hide('results');
-        }
-
-        const zone = document.getElementById('uploadZone');
-        const fileInput = document.getElementById('fileInput');
-
-        zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
-        zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
-        zone.addEventListener('drop', e => {
-            e.preventDefault();
-            zone.classList.remove('dragover');
-            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
-        });
-        zone.addEventListener('click', e => { if (e.target.tagName !== 'BUTTON') fileInput.click(); });
-        fileInput.addEventListener('change', () => { if (fileInput.files.length) handleFile(fileInput.files[0]); });
-
-        function handleFile(file) {
-            const ext = file.name.split('.').pop().toLowerCase();
-            if (!['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
-                showError('Unsupported file type. Please use JPEG, PNG, or WebP.');
-                return;
-            }
-            if (file.size > 10 * 1024 * 1024) {
-                showError('File too large. Maximum size is 10 MB.');
-                return;
-            }
-            selectedFile = file;
-            hideError();
-            hide('results');
-
-            const reader = new FileReader();
-            reader.onload = e => {
-                document.getElementById('previewImg').src = e.target.result;
-                document.getElementById('previewFilename').textContent = file.name;
-                document.getElementById('previewSize').textContent = formatSize(file.size);
-                show('previewArea');
-                show('analyzeBtn');
-            };
-            reader.readAsDataURL(file);
-        }
-
-        // ── Analysis ──────────────────────────────────────────────────────────
-        async function analyzeImage() {
-            if (!selectedFile) return;
-            hide('results');
-            hide('analyzeBtn');
-            hideError();
-            show('loading');
-
-            const formData = new FormData();
-            formData.append('file', selectedFile);
-            formData.append('mode', currentMode);
-
-
-            try {
-                const resp = await fetch('/api/detect', { method: 'POST', body: formData });
-                if (!resp.ok) {
-                    const err = await resp.json();
-                    throw new Error(err.detail || 'Analysis failed');
-                }
-                const data = await resp.json();
-                displayResults(data);
-            } catch (err) {
-                showError(err.message);
-            } finally {
-                hide('loading');
-                show('analyzeBtn');
-            }
-        }
-
-        // ── Render results ────────────────────────────────────────────────────
-        function displayResults(data) {
-            const label = data.label;           // 'Real' | 'AI-Generated' | 'Uncertain'
-            const isAI = label === 'AI-Generated';
-            const isUncert = label === 'Uncertain';
-
-            // Screenshot warning — show the actual server message
-            const sw = document.getElementById('screenshotWarning');
-            if (data.screenshot_warning) {
-                document.getElementById('screenshotWarningText').textContent =
-                    data.screenshot_warning;
-                sw.classList.add('visible');
-            } else {
-                sw.classList.remove('visible');
+                // Lead with the model's holistic read (it weighs deep visual patterns
+                // beyond the listed analyzers), then add specific signals that agree.
+                const holistic = leanAI
+                    ? 'the overall visual pattern matches AI-generated images'
+                    : 'the overall look matches a real photograph';
+                why = [holistic, ...reasons(d.scores || {}, leanAI)].slice(0, 4);
             }
 
-            // Verdict card  (3-way: ai / uncertain / real)
-            const card = document.getElementById('verdictCard');
-            card.className = 'verdict-card ' + (isAI ? 'ai' : isUncert ? 'uncertain' : 'real');
-            document.getElementById('verdictEmoji').textContent = isAI ? '🤖' : isUncert ? '❓' : '📷';
-            document.getElementById('verdictLabel').textContent = isAI ? 'Likely AI-Generated' : isUncert ? 'Uncertain — Could Be Either' : 'Likely a Real Photo';
-            document.getElementById('verdictConfidence').textContent = isUncert
-                ? 'Confidence too low to make a reliable call (screenshot mode active)'
-                : `The detector is ${data.confidence}% confident in this result`;
-            document.getElementById('verdictPlain').textContent = isAI
-                ? 'Analysis found patterns typical of AI image generators — frequency spread, color statistics, and/or texture fingerprint don\'t match what a real camera produces.'
-                : isUncert
-                    ? 'This appears to be a screenshot of content that your monitor rendered. The display pipeline added noise and altered color statistics, masking the original AI signals. Try uploading the original downloaded file instead.'
-                    : 'Analysis found patterns consistent with a real photograph — natural camera noise, authentic JPEG history, and frequency patterns that match genuine photos.';
-            document.getElementById('verdictMeta').innerHTML =
-                `<span>Detection method: ${data.method === 'svm' ? 'Machine learning (SVM)' : 'Voting'}</span>` +
-                `<span>Analysis time: ${data.analysis_time}s</span>`;
+            const scoreRows = Object.keys(SIGNALS).filter(k => d.scores && k in d.scores).map(k => {
+                const v = Math.round(d.scores[k] * 100);
+                const name = ({ npr: 'Fine detail / upscaling', noise: 'Sensor noise & grain',
+                    fft: 'Frequency patterns', patchcraft: 'Texture consistency',
+                    gradient: 'Edges & sharpness', dct: 'Compression patterns',
+                    eigenvalue: 'Colour structure', ela: 'Re-save traces' })[k];
+                return `<div class="barrow"><div class="lab"><span>${name}</span><span>${v}% AI-like</span></div>
+                    <div class="t"><div class="f" style="width:${v}%"></div></div></div>`;
+            }).join('');
 
-            // Analyzer cards
-            buildAnalyzerCards(data.scores);
-
-            // Expert details
-            buildDetails(data.details);
-            hide('detailsPanel');
-            document.getElementById('detailsToggle').textContent = '🔬 Show raw expert numbers';
-
-            show('results');
-        }
-
-        function level(score) {
-            return score < 0.4 ? 'pass' : score < 0.6 ? 'warn' : 'fail';
-        }
-
-        function buildAnalyzerCards(scores) {
-            const grid = document.getElementById('analyzerGrid');
-            grid.innerHTML = '';
-
-            ANALYZERS.forEach(a => {
-                const score = scores[a.key] ?? 0;
-                const lv = level(score);
-                const pct = Math.round(score * 100);
-
-                const verdictText = {
-                    pass: '✓ Looks Real',
-                    warn: '~ Uncertain',
-                    fail: '✗ AI Signal',
-                }[lv];
-
-                const meaning = a.meaning[lv];
-
-                const el = document.createElement('div');
-                el.className = 'acard';
-                el.innerHTML = `
-                <div class="acard-top">
-                    <div class="acard-icon">${a.icon}</div>
-                    <div class="acard-info">
-                        <div class="acard-name">${a.name}</div>
-                        <div class="acard-what">${a.what}</div>
-                    </div>
-                    <div class="acard-result">
-                        <div class="acard-verdict ${lv}">${verdictText}</div>
-                    </div>
+            result.style.display = 'block';
+            result.innerHTML = `
+            <div class="card">
+              <div class="preview-row">
+                <img src="${previewUrl}" alt="The image you uploaded">
+                <div class="verdict-block">
+                  <span class="pill ${cls}">${state}</span>
+                  <div class="conf-label">Confidence: ${conf}</div>
                 </div>
-                <div class="acard-bar-wrap">
-                    <div class="acard-bar ${lv}" style="width:${pct}%"></div>
+              </div>
+              <div class="meter">
+                <div class="lab" style="display:flex;justify-content:space-between;font-size:13px;color:var(--ink-soft)">
+                  <span>AI likelihood</span><span>${pct}%</span>
                 </div>
-                <div class="acard-meaning">${meaning}</div>
-            `;
-                grid.appendChild(el);
-            });
-        }
-
-        function buildDetails(details) {
-            const inner = document.getElementById('detailsInner');
-            inner.innerHTML = '';
-
-            const sectionMeta = {
-                fft: { title: '🌊 Light & Frequency', icon: '' },
-                eigenvalue: { title: '🎨 Color Statistics', icon: '' },
-                metadata: { title: '🏷️ Camera Information', icon: '' },
-                noise: { title: '🌫️ Sensor Noise', icon: '' },
-                dct: { title: '🧩 JPEG Compression', icon: '' },
-                ela: { title: '🕵️ Manipulation Check', icon: '' },
-                gradient: { title: '📐 Edge Sharpness', icon: '' },
-                patchcraft: { title: '🔬 Texture Consistency', icon: '' },
-                screenshot_features: { title: '📱 Screenshot Forensics (15 features)', icon: '' },
-            };
-
-            for (const [key, meta] of Object.entries(sectionMeta)) {
-                const d = details[key];
-                if (!d || Object.keys(d).length === 0) continue;
-
-                const sec = document.createElement('div');
-                sec.className = 'dsection';
-
-                let rows = `<div class="dsection-title">${meta.title}</div>`;
-                for (const [k, v] of Object.entries(d)) {
-                    const { label, tip } = labelFor(k);
-                    rows += `<div class="drow">
-                    <span class="dkey">${label}</span>
-                    ${tip ? `<span class="dtip">${tip}</span>` : ''}
-                    <span class="dval">${v}</span>
-                </div>`;
-                }
-                sec.innerHTML = rows;
-                inner.appendChild(sec);
-            }
-        }
-
-        function toggleDetails() {
-            const panel = document.getElementById('detailsPanel');
-            const btn = document.getElementById('detailsToggle');
-            const open = panel.classList.toggle('visible');
-            btn.textContent = open ? '🔬 Hide raw expert numbers' : '🔬 Show raw expert numbers';
-        }
-
-        // ── Helpers ───────────────────────────────────────────────────────────
-        function show(id) { document.getElementById(id).classList.add('visible'); }
-        function hide(id) { document.getElementById(id).classList.remove('visible'); }
-        function showError(msg) {
-            const el = document.getElementById('errorMsg');
-            el.textContent = '⚠ ' + msg;
-            el.classList.add('visible');
-        }
-        function hideError() { document.getElementById('errorMsg').classList.remove('visible'); }
-        function formatSize(bytes) {
-            if (bytes < 1024) return bytes + ' B';
-            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+                <div class="track"><div class="fill" style="width:${pct}%;background:${fillColor}"></div></div>
+                <div class="scale"><span>Real</span><span>AI-generated</span></div>
+              </div>
+              <div class="why">
+                <h3>Why we think so</h3>
+                <ul>${why.map(w => `<li>${w}</li>`).join('')}</ul>
+              </div>
+              <p class="humility">This is an estimate, not proof — please use your own judgment too.</p>
+              ${d.fallback ? `<div class="note info">Running in lightweight mode on this server, so accuracy may be a little lower than usual.</div>` : ''}
+              ${d.screenshot_warning ? `<div class="note info">${d.screenshot_warning}</div>` : ''}
+              <details class="detail">
+                <summary>See the detailed analysis</summary>
+                <div class="bars">${scoreRows || '<p style="color:var(--muted);font-size:13px">No detailed signals available.</p>'}</div>
+              </details>
+            </div>`;
+            result.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     </script>
 </body>

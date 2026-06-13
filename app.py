@@ -99,6 +99,7 @@ async def detect_image(file: UploadFile, mode: str = Form("normal")):
                 "ela": round(scores["ela_score"], 3),
                 "gradient": round(scores["gradient_score"], 3),
                 "patchcraft": round(scores["patchcraft_score"], 3),
+                "npr": round(scores["npr_score"], 3),
                 "screenshot_img": round(scores["screenshot_img_score"], 3),
             },
             "details": details,
