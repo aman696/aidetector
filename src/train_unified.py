@@ -207,6 +207,22 @@ def train_unified(
     return summary
 
 
+def enable_gpu() -> bool:
+    """
+    Turn on RAPIDS cuML's zero-code-change accelerator so the sklearn SVC fits
+    run on the GPU. Returns True if it activated. Safe to call when cuML is
+    absent (returns False -> the CPU path is used). cuml.accel patches the
+    already-imported sklearn estimator classes in place.
+    """
+    try:
+        import cuml.accel
+        cuml.accel.install()
+        return True
+    except Exception as exc:  # cuML not installed / GPU unavailable
+        print(f"[gpu] cuML acceleration unavailable, using CPU: {exc}")
+        return False
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="Train the unified v2 detector")
     p.add_argument("--out-dir", default="models")
@@ -215,9 +231,19 @@ def main() -> None:
     p.add_argument("--n-jobs", type=int, default=-1)
     p.add_argument("--max-rows", type=int, default=0,
                    help="subsample train rows (0 = all) for a quick run")
+    p.add_argument("--gpu", action="store_true",
+                   help="accelerate the SVM fits on GPU via cuML (cuml.accel)")
     args = p.parse_args()
+
+    n_jobs = args.n_jobs
+    if args.gpu and enable_gpu():
+        # All fits must run in the accelerated MAIN process; loky workers
+        # (n_jobs != 1) would not carry the cuML patch and would run on CPU.
+        n_jobs = 1
+        print("[gpu] cuML acceleration active; using n_jobs=1 for GPU fits")
+
     train_unified(out_dir=args.out_dir, reports_dir=args.reports_dir,
-                  n_splits=args.folds, max_rows=args.max_rows, n_jobs=args.n_jobs)
+                  n_splits=args.folds, max_rows=args.max_rows, n_jobs=n_jobs)
 
 
 if __name__ == "__main__":

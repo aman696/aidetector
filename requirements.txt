@@ -13,3 +13,8 @@ pydantic
 # install for the DINOv2 path: pip install torch timm
 torch
 timm
+
+# Optional (GPU-accelerated SVM training via RAPIDS cuML). CPU sklearn is the
+# default/fallback; install to use `python -m src.train_unified --gpu`:
+# pip install --extra-index-url=https://pypi.nvidia.com cuml-cu13
+# cuml-cu13

@@ -7,6 +7,8 @@ search runs with group-aware CV, the saved bundle round-trips, and the final
 model produces calibrated probabilities.
 """
 
+import sys
+
 import joblib
 import numpy as np
 import pytest
@@ -116,3 +118,31 @@ class TestOrchestrator:
         loaded = joblib.load(tmp_path / "models" / "classical_v2.pkl")
         assert loaded["classical_only"] is True
         assert loaded["embed_model_name"] is None
+
+
+class TestGpuFlag:
+    """Wiring only — enable_gpu is mocked so cuml.accel never patches sklearn
+    for the rest of the suite."""
+
+    def test_gpu_flag_forces_serial_jobs(self, monkeypatch):
+        captured = {}
+        monkeypatch.setattr(tu, "enable_gpu", lambda: True)
+        monkeypatch.setattr(tu, "train_unified", lambda **kw: captured.update(kw))
+        monkeypatch.setattr(sys, "argv", ["prog", "--gpu", "--n-jobs", "8"])
+        tu.main()
+        assert captured["n_jobs"] == 1  # GPU path overrides to serial
+
+    def test_cpu_default_keeps_n_jobs(self, monkeypatch):
+        captured = {}
+        monkeypatch.setattr(tu, "train_unified", lambda **kw: captured.update(kw))
+        monkeypatch.setattr(sys, "argv", ["prog", "--n-jobs", "8"])
+        tu.main()
+        assert captured["n_jobs"] == 8
+
+    def test_gpu_flag_unavailable_falls_back(self, monkeypatch):
+        captured = {}
+        monkeypatch.setattr(tu, "enable_gpu", lambda: False)  # cuML absent
+        monkeypatch.setattr(tu, "train_unified", lambda **kw: captured.update(kw))
+        monkeypatch.setattr(sys, "argv", ["prog", "--gpu", "--n-jobs", "4"])
+        tu.main()
+        assert captured["n_jobs"] == 4  # stays on CPU path
