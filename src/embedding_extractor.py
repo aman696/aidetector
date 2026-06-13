@@ -217,7 +217,7 @@ class DinoEmbedder:
         std = torch.from_numpy(self.std)
         return (x01 - mean) / std
 
-    def _forward(self, tensors: List["object"], batch_size: int) -> np.ndarray:
+    def _forward(self, tensors: list, batch_size: int) -> np.ndarray:
         torch = self.torch
         outs = []
         with torch.inference_mode():

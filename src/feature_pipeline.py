@@ -145,15 +145,36 @@ def _ensure_embeddings(ids: Sequence[str], paths: Sequence[str],
               f"(cached: {len(ids) - len(missing)})")
     mids = [m[0] for m in missing]
     mpaths = [m[1] for m in missing]
+    failures: List[Tuple[str, str]] = []
     for k in range(0, len(missing), chunk):
         c_ids = mids[k:k + chunk]
         c_paths = mpaths[k:k + chunk]
         c_seeds = [seed_for_id(i) for i in c_ids]
-        embs = embedder.embed_batch_with_drift(c_paths, c_seeds, batch_size=batch_size)
-        for rec_id, vec in zip(c_ids, embs):
+        try:
+            embs = embedder.embed_batch_with_drift(c_paths, c_seeds,
+                                                   batch_size=batch_size)
+            rows = list(zip(c_ids, embs))
+        except Exception:
+            # One bad image must not lose the whole chunk: retry per image.
+            rows = []
+            for rec_id, path, sd in zip(c_ids, c_paths, c_seeds):
+                try:
+                    vec = embedder.embed_batch_with_drift([path], [sd],
+                                                          batch_size=batch_size)[0]
+                    rows.append((rec_id, vec))
+                except Exception as exc:
+                    failures.append((rec_id, str(exc)))
+        # Only write successful rows — a failed image is left uncached so a
+        # rerun retries it, rather than freezing a fake zero vector.
+        for rec_id, vec in rows:
             np.save(_emb_path(rec_id), vec.astype(np.float32))
         if verbose:
             print(f"  [embed] {min(k + chunk, len(missing))}/{len(missing)}")
+    if failures:
+        raise RuntimeError(
+            f"{len(failures)} image(s) failed to embed (left uncached; fix or "
+            f"exclude them and re-run). First few: {failures[:10]}"
+        )
 
 
 # --------------------------------------------------------------------------- #

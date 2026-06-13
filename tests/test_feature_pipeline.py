@@ -144,3 +144,21 @@ class TestExtractUnified:
         assert vec.shape == (855,) and len(names) == 855
         X, _ = fp.assemble_features([rec], embedder=emb, verbose=False)
         np.testing.assert_allclose(vec, X[0], rtol=0, atol=1e-4)
+
+    def test_bad_image_isolated_and_reported(self, tmp_cache):
+        pytest.importorskip("torch")
+        pytest.importorskip("timm")
+        from src.embedding_extractor import DinoEmbedder
+        try:
+            emb = DinoEmbedder(device="cpu", half=False)
+        except Exception as exc:
+            pytest.skip(f"DINOv2 weights unavailable: {exc}")
+        good = _sample_records(1)[0]
+        bad = dict(good)
+        bad["id"] = "nonexistent_image_xyz"
+        bad["path"] = "data/this_path_does_not_exist.png"
+        with pytest.raises(RuntimeError, match="failed to embed"):
+            fp.assemble_features([good, bad], embedder=emb, verbose=False)
+        # The good image still got cached; the bad one was left uncached.
+        assert os.path.exists(fp._emb_path(good["id"]))
+        assert not os.path.exists(fp._emb_path(bad["id"]))
