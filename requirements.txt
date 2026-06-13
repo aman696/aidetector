@@ -18,3 +18,6 @@ timm
 # default/fallback; install to use `python -m src.train_unified --gpu`:
 # pip install --extra-index-url=https://pypi.nvidia.com cuml-cu13
 # cuml-cu13
+
+# Optional: external-dataset fetch for AR research (scripts/fetch_openfake.py). Not needed at runtime.
+datasets>=3.0

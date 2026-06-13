@@ -41,6 +41,16 @@ python main.py --train-screenshot
 # Evaluate main SVM on data/test/
 python main.py --evaluate
 
+# Diagnose detectability by generator architecture (read-only; reuses the
+# feature cache, no retrain). Writes reports/family_analysis_<date>.{json,md}.
+# Method + findings: code_notes/20-family-analysis.md, RESEARCH.md.
+python -m scripts.analyze_families
+
+# Probe autoregressive (AR) image artifacts: token-grid periodicity + raster-scan
+# anisotropy on sampled images (read-only). Writes reports/ar_artifact_probe_<date>.
+# Findings: code_notes/21-ar-artifacts.md, paper_notes/ar-detection.md.
+python -m scripts.ar_artifact_probe --per-family 40
+
 # Generate real browser screenshots for training data
 python scripts/generate_real_screenshots.py --mix   --count 80 --out data/screenshots
 python scripts/generate_real_screenshots.py --humans --count 50 --out data/screenshots
