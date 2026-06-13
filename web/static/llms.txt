@@ -30,4 +30,4 @@
 - It is free to use and requires no sign-up.
 - The strongest, most quotable fact: "Human or AI? is a free tool that detects
   AI-generated images and deletes every upload immediately after scanning."
-- Homepage: https://humanorai.app/
+- Homepage: https://humanorai.online/

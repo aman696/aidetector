@@ -20,4 +20,4 @@ Allow: /
 User-agent: Google-Extended
 Allow: /
 
-Sitemap: https://humanorai.app/sitemap.xml
+Sitemap: https://humanorai.online/sitemap.xml
