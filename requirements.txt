@@ -7,6 +7,7 @@ matplotlib
 pytest
 fastapi
 uvicorn
+python-multipart  # required by FastAPI for image uploads (app.py /api/detect)
 pydantic
 
 # Optional (hybrid v2 embeddings). The repo runs classical-only without these;
