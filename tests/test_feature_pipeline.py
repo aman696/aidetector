@@ -51,6 +51,21 @@ class TestNames:
         assert fp.FEATURE_NAMES[-2:] == ["drift_emb_2_255", "drift_emb_6_255"]
 
 
+class TestSanitize:
+    def test_replaces_non_finite_with_zero(self):
+        X = np.array([[1.0, np.nan, 3.0],
+                      [np.inf, 5.0, -np.inf]], dtype=np.float32)
+        out = fp._sanitize(X)
+        assert np.isfinite(out).all()
+        assert out[0, 1] == 0.0 and out[1, 0] == 0.0 and out[1, 2] == 0.0
+        assert out[0, 0] == 1.0 and out[1, 1] == 5.0  # finite cells untouched
+
+    def test_finite_matrix_unchanged(self):
+        X = np.arange(6, dtype=np.float32).reshape(2, 3)
+        out = fp._sanitize(X.copy())
+        np.testing.assert_array_equal(out, X)
+
+
 class TestSeed:
     def test_deterministic_and_distinct(self):
         assert fp.seed_for_id("abc") == fp.seed_for_id("abc")

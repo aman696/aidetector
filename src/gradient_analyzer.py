@@ -92,7 +92,11 @@ def extract_gradient_features(image_path: str) -> Dict[str, float]:
         # Kurtosis: Fisher definition (kurtosis of Gaussian = 0)
         # Real photos have heavy-tailed edge distributions (high kurtosis)
         # AI images tend to have more uniform edge magnitudes (lower kurtosis)
+        # scipy returns NaN for a constant (zero-variance) gradient; that is a
+        # degenerate, texture-less image -> neutral 0.0, not a propagating NaN.
         grad_kurt = float(scipy_stats.kurtosis(flat_grad, fisher=True))
+        if not np.isfinite(grad_kurt):
+            grad_kurt = 0.0
 
         # Laplacian features
         laplacian = compute_laplacian(img)

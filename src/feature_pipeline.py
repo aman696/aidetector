@@ -55,6 +55,16 @@ N_EMB = EMB_OUT_DIM
 # Paths, seeds, cache metadata
 # --------------------------------------------------------------------------- #
 
+def _sanitize(X: np.ndarray) -> np.ndarray:
+    """Last-resort guard: replace any non-finite cell with 0.0 so a single
+    degenerate feature (e.g. kurtosis of a zero-variance image) can never put
+    NaN/inf into the SVM. The analyzers should return neutral values
+    themselves; this catches anything that slips through."""
+    if not np.isfinite(X).all():
+        np.nan_to_num(X, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
+    return X
+
+
 def _classical_path(rec_id: str) -> str:
     return os.path.join(CLASSICAL_DIR, f"{rec_id}.npy")
 
@@ -222,13 +232,13 @@ def assemble_features(
         X = np.empty((n, N_CLASSICAL), dtype=np.float32)
         for i, rec_id in enumerate(ids):
             X[i] = np.load(_classical_path(rec_id))
-        return X, CLASSICAL_NAMES
+        return _sanitize(X), CLASSICAL_NAMES
 
     X = np.empty((n, N_CLASSICAL + N_EMB), dtype=np.float32)
     for i, rec_id in enumerate(ids):
         X[i, :N_CLASSICAL] = np.load(_classical_path(rec_id))
         X[i, N_CLASSICAL:] = np.load(_emb_path(rec_id))
-    return X, FEATURE_NAMES
+    return _sanitize(X), FEATURE_NAMES
 
 
 def extract_unified(
