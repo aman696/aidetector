@@ -1,0 +1,36 @@
+# Keep the build context (and image) small: only src/, web/, app.py, main.py,
+# the two v2 model files, and requirements-deploy.txt are needed to serve.
+
+.git
+.github
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+*.log
+
+# Large / local-only data and artifacts (never needed at runtime)
+data
+reports
+papers
+paper_notes
+code_notes
+scripts
+tests
+
+# v1 models the v2 app does not load
+models/svm_classifier.pkl
+models/screenshot_classifier.pkl
+
+# editor / local config
+.claude
+.vscode
+.idea
+.DS_Store
+
+# local docs not needed in the image
+V2_PROGRESS.md
+CLEANUP_AND_RESEARCH_PLAN.md
+PROJECT_EXPLAINED.md
+TODO.md

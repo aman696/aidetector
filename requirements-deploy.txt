@@ -1,0 +1,17 @@
+# Runtime dependencies for the web app (app.py). Trimmed from requirements.txt:
+# no matplotlib/pytest/datasets (not needed to serve). torch + timm are NOT here
+# — they are installed conditionally in the Dockerfile (CPU build, via build arg),
+# because they are large and only needed for the full DINOv2 model.
+#
+# Scientific stack is pinned to the versions the v2 model was trained with, so the
+# pickled model unpickles cleanly (scikit-learn pickles are version-sensitive).
+numpy==2.4.6
+scipy==1.17.1
+scikit-learn==1.9.0
+joblib==1.5.3
+pillow
+opencv-python-headless
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
