@@ -37,6 +37,7 @@ import joblib
 import numpy as np
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import GridSearchCV, StratifiedGroupKFold, cross_val_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -49,6 +50,9 @@ DEFAULT_C = (1.0, 10.0, 100.0)
 DEFAULT_GAMMA = ("scale", 1e-3, 1e-4)
 
 
+DEFAULT_MAX_ITER = 5000  # caps each SVC fit so a hard config can't run unbounded
+
+
 def _param_grid(c_values: Sequence[float], gamma_values: Sequence) -> List[dict]:
     """RBF grid (C x gamma) plus one linear sweep (C only)."""
     return [
@@ -56,6 +60,45 @@ def _param_grid(c_values: Sequence[float], gamma_values: Sequence) -> List[dict]
          "svc__gamma": list(gamma_values)},
         {"svc__kernel": ["linear"], "svc__C": list(c_values)},
     ]
+
+
+def _configs(c_values: Sequence[float], gamma_values: Sequence) -> List[dict]:
+    """Flat list of SVC kwargs: RBF (C x gamma) + linear (C)."""
+    rbf = [{"kernel": "rbf", "C": float(c), "gamma": g}
+           for c in c_values for g in gamma_values]
+    linear = [{"kernel": "linear", "C": float(c)} for c in c_values]
+    return rbf + linear
+
+
+def _gpu_grid_search(X, y, groups, splits, c_values, gamma_values,
+                     max_iter, verbose):
+    """
+    Group-aware CV grid search using cuML's GPU SVC. Returns (best_kwargs,
+    best_auc). Each fold scales on its own train rows (no leakage), fits on
+    GPU, and scores ROC-AUC over decision_function (numpy out, no cupy).
+    """
+    from cuml.svm import SVC as cuSVC
+
+    cv = StratifiedGroupKFold(n_splits=splits)
+    Xf = np.ascontiguousarray(X, dtype=np.float32)
+    yf = y.astype(np.float32)
+    best, best_auc = None, -1.0
+    for cfg in _configs(c_values, gamma_values):
+        aucs = []
+        for tr, va in cv.split(Xf, y, groups):
+            scaler = StandardScaler().fit(Xf[tr])
+            Xtr = scaler.transform(Xf[tr]).astype(np.float32)
+            Xva = scaler.transform(Xf[va]).astype(np.float32)
+            svc = cuSVC(class_weight="balanced", max_iter=max_iter, **cfg)
+            svc.fit(Xtr, yf[tr])
+            scores = np.asarray(svc.decision_function(Xva)).ravel()
+            aucs.append(roc_auc_score(y[va], scores))
+        mean_auc = float(np.mean(aucs))
+        if verbose:
+            print(f"  [gpu] {cfg} -> CV AUC {mean_auc:.4f}")
+        if mean_auc > best_auc:
+            best_auc, best = mean_auc, cfg
+    return best, best_auc
 
 
 def train_from_matrix(
@@ -69,38 +112,49 @@ def train_from_matrix(
     c_values: Sequence[float] = DEFAULT_C,
     gamma_values: Sequence = DEFAULT_GAMMA,
     n_jobs: int = -1,
+    gpu: bool = False,
+    max_iter: int = DEFAULT_MAX_ITER,
     verbose: bool = True,
 ) -> Tuple[dict, dict]:
     """
     Grid-search an RBF/linear SVM with group-aware CV, then fit a calibrated
     final model on all rows. Returns (bundle, summary).
 
-    The scaler lives INSIDE the pipeline so it is refit within every CV fold
-    (no train/val leakage through standardization). `groups` (base_id) drives
-    StratifiedGroupKFold.
+    gpu=True runs the grid search on the GPU via cuML SVC (fast); the FINAL
+    saved model is always a sklearn pipeline, so the .pkl loads and predicts
+    on CPU with no cuML/GPU dependency. The scaler lives inside the pipeline
+    so it is refit within every fold (no leakage); `groups` (base_id) drives
+    StratifiedGroupKFold. `max_iter` caps each SVC fit so a hard config cannot
+    run unbounded.
     """
     n_groups = len(np.unique(groups))
     splits = max(2, min(n_splits, n_groups))
 
-    base = Pipeline([
-        ("scaler", StandardScaler()),
-        ("svc", SVC(class_weight="balanced")),
-    ])
-    cv = StratifiedGroupKFold(n_splits=splits)
-    grid = GridSearchCV(
-        base, _param_grid(c_values, gamma_values),
-        scoring="roc_auc", cv=cv, n_jobs=n_jobs, refit=False,
-    )
-    grid.fit(X, y, groups=groups)
-    best = {k.replace("svc__", ""): v for k, v in grid.best_params_.items()}
+    if gpu:
+        best, best_auc = _gpu_grid_search(
+            X, y, groups, splits, c_values, gamma_values, max_iter, verbose)
+    else:
+        base = Pipeline([
+            ("scaler", StandardScaler()),
+            ("svc", SVC(class_weight="balanced", max_iter=max_iter)),
+        ])
+        grid = GridSearchCV(
+            base, _param_grid(c_values, gamma_values),
+            scoring="roc_auc", cv=StratifiedGroupKFold(n_splits=splits),
+            n_jobs=n_jobs, refit=False,
+        )
+        grid.fit(X, y, groups=groups)
+        best = {k.replace("svc__", ""): v for k, v in grid.best_params_.items()}
+        best_auc = float(grid.best_score_)
     if verbose:
-        print(f"  best params: {best}  (CV ROC-AUC {grid.best_score_:.4f})")
+        print(f"  best params: {best}  (CV ROC-AUC {best_auc:.4f})")
 
-    # Final model: same SVC config, calibrated once for predict_proba.
+    # Final model is ALWAYS sklearn so the pickle is portable (CPU eval/web,
+    # no cuML). Calibrated once for predict_proba.
     final = Pipeline([
         ("scaler", StandardScaler()),
         ("clf", CalibratedClassifierCV(
-            SVC(class_weight="balanced", **best),
+            SVC(class_weight="balanced", max_iter=max_iter, **best),
             method="sigmoid", cv=splits, ensemble=False)),
     ])
     final.fit(X, y)
@@ -112,7 +166,8 @@ def train_from_matrix(
         "embed_model_name": embed_model_name,
         "classical_only": classical_only,
         "best_params": best,
-        "cv_roc_auc": float(grid.best_score_),
+        "cv_roc_auc": float(best_auc),
+        "trained_on_gpu": bool(gpu),
         "n_train": int(X.shape[0]),
         "n_features": int(X.shape[1]),
         "trained_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -122,7 +177,7 @@ def train_from_matrix(
         "n_train": int(X.shape[0]),
         "n_features": int(X.shape[1]),
         "best_params": best,
-        "cv_roc_auc": float(grid.best_score_),
+        "cv_roc_auc": float(best_auc),
     }
     return bundle, summary
 
@@ -146,6 +201,7 @@ def train_unified(
     n_splits: int = 5,
     max_rows: int = 0,
     n_jobs: int = -1,
+    gpu: bool = False,
     embedder=None,
     verbose: bool = True,
 ) -> dict:
@@ -178,14 +234,15 @@ def train_unified(
         print(f"Training unified model on {X.shape}...")
     unified_bundle, unified_sum = train_from_matrix(
         X, y, groups, names, DEFAULT_MODEL, classical_only=False,
-        n_splits=n_splits, n_jobs=n_jobs, verbose=verbose)
+        n_splits=n_splits, n_jobs=n_jobs, gpu=gpu, verbose=verbose)
     joblib.dump(unified_bundle, os.path.join(out_dir, "unified_v2.pkl"))
 
     if verbose:
         print(f"Training classical fallback on {X[:, :N_CLASSICAL].shape}...")
     classical_bundle, classical_sum = train_from_matrix(
         X[:, :N_CLASSICAL], y, groups, names[:N_CLASSICAL], None,
-        classical_only=True, n_splits=n_splits, n_jobs=n_jobs, verbose=verbose)
+        classical_only=True, n_splits=n_splits, n_jobs=n_jobs, gpu=gpu,
+        verbose=verbose)
     joblib.dump(classical_bundle, os.path.join(out_dir, "classical_v2.pkl"))
 
     emb_auc = _embedding_only_ablation(X[:, N_CLASSICAL:], y, groups, n_splits)
@@ -209,17 +266,16 @@ def train_unified(
 
 def enable_gpu() -> bool:
     """
-    Turn on RAPIDS cuML's zero-code-change accelerator so the sklearn SVC fits
-    run on the GPU. Returns True if it activated. Safe to call when cuML is
-    absent (returns False -> the CPU path is used). cuml.accel patches the
-    already-imported sklearn estimator classes in place.
+    Check that cuML's GPU SVC is importable (the grid search uses it directly
+    via `_gpu_grid_search` — NOT the cuml.accel transparent accelerator, which
+    does not intercept SVC inside a Pipeline/GridSearchCV). Returns False when
+    cuML is absent so the caller stays on the CPU sklearn path.
     """
     try:
-        import cuml.accel
-        cuml.accel.install()
+        from cuml.svm import SVC  # noqa: F401
         return True
     except Exception as exc:  # cuML not installed / GPU unavailable
-        print(f"[gpu] cuML acceleration unavailable, using CPU: {exc}")
+        print(f"[gpu] cuML GPU SVC unavailable, using CPU: {exc}")
         return False
 
 
@@ -232,18 +288,16 @@ def main() -> None:
     p.add_argument("--max-rows", type=int, default=0,
                    help="subsample train rows (0 = all) for a quick run")
     p.add_argument("--gpu", action="store_true",
-                   help="accelerate the SVM fits on GPU via cuML (cuml.accel)")
+                   help="run the SVM grid search on GPU via cuML SVC")
     args = p.parse_args()
 
-    n_jobs = args.n_jobs
-    if args.gpu and enable_gpu():
-        # All fits must run in the accelerated MAIN process; loky workers
-        # (n_jobs != 1) would not carry the cuML patch and would run on CPU.
-        n_jobs = 1
-        print("[gpu] cuML acceleration active; using n_jobs=1 for GPU fits")
+    gpu = args.gpu and enable_gpu()
+    if gpu:
+        print("[gpu] cuML GPU SVC active for the grid search")
 
     train_unified(out_dir=args.out_dir, reports_dir=args.reports_dir,
-                  n_splits=args.folds, max_rows=args.max_rows, n_jobs=n_jobs)
+                  n_splits=args.folds, max_rows=args.max_rows,
+                  n_jobs=args.n_jobs, gpu=gpu)
 
 
 if __name__ == "__main__":

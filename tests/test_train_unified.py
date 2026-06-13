@@ -121,22 +121,23 @@ class TestOrchestrator:
 
 
 class TestGpuFlag:
-    """Wiring only — enable_gpu is mocked so cuml.accel never patches sklearn
-    for the rest of the suite."""
+    """Wiring only — enable_gpu is mocked so cuML is never imported here."""
 
-    def test_gpu_flag_forces_serial_jobs(self, monkeypatch):
+    def test_gpu_flag_passes_gpu_true_keeps_n_jobs(self, monkeypatch):
         captured = {}
         monkeypatch.setattr(tu, "enable_gpu", lambda: True)
         monkeypatch.setattr(tu, "train_unified", lambda **kw: captured.update(kw))
         monkeypatch.setattr(sys, "argv", ["prog", "--gpu", "--n-jobs", "8"])
         tu.main()
-        assert captured["n_jobs"] == 1  # GPU path overrides to serial
+        assert captured["gpu"] is True
+        assert captured["n_jobs"] == 8  # CPU parallelism preserved for the rest
 
-    def test_cpu_default_keeps_n_jobs(self, monkeypatch):
+    def test_cpu_default_gpu_false(self, monkeypatch):
         captured = {}
         monkeypatch.setattr(tu, "train_unified", lambda **kw: captured.update(kw))
         monkeypatch.setattr(sys, "argv", ["prog", "--n-jobs", "8"])
         tu.main()
+        assert captured["gpu"] is False
         assert captured["n_jobs"] == 8
 
     def test_gpu_flag_unavailable_falls_back(self, monkeypatch):
@@ -145,4 +146,5 @@ class TestGpuFlag:
         monkeypatch.setattr(tu, "train_unified", lambda **kw: captured.update(kw))
         monkeypatch.setattr(sys, "argv", ["prog", "--gpu", "--n-jobs", "4"])
         tu.main()
-        assert captured["n_jobs"] == 4  # stays on CPU path
+        assert captured["gpu"] is False  # falls back to CPU
+        assert captured["n_jobs"] == 4

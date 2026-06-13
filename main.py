@@ -89,11 +89,10 @@ def train_model(gpu: bool, folds: int):
     print_banner()
     print("Training unified v2 detector")
     print("-" * 60)
-    n_jobs = -1
-    if gpu and enable_gpu():
-        n_jobs = 1
-        print("[gpu] cuML acceleration active; using n_jobs=1")
-    train_unified(n_splits=folds, n_jobs=n_jobs)
+    use_gpu = gpu and enable_gpu()
+    if use_gpu:
+        print("[gpu] cuML GPU SVC active for the grid search")
+    train_unified(n_splits=folds, n_jobs=-1, gpu=use_gpu)
 
 
 def evaluate_model():
