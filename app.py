@@ -17,9 +17,13 @@ import tempfile
 import shutil
 
 from fastapi import FastAPI, UploadFile, HTTPException, Form
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
+STATIC_DIR = os.path.join(WEB_DIR, "static")
 
 from src.classifier import FeatureExtractor
 from src.fft_analyzer import extract_fft_features
@@ -115,11 +119,31 @@ async def detect_image(file: UploadFile, mode: str = Form("normal")):
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
+# Static assets (OG image, etc.) under /static.
+if os.path.isdir(STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    html_path = os.path.join(os.path.dirname(__file__), "web", "index.html")
-    with open(html_path, "r") as f:
+    with open(os.path.join(WEB_DIR, "index.html"), "r") as f:
         return f.read()
+
+
+# Discoverability files must live at the site root, not under /static.
+@app.get("/robots.txt")
+async def robots():
+    return FileResponse(os.path.join(STATIC_DIR, "robots.txt"), media_type="text/plain")
+
+
+@app.get("/sitemap.xml")
+async def sitemap():
+    return FileResponse(os.path.join(STATIC_DIR, "sitemap.xml"), media_type="application/xml")
+
+
+@app.get("/llms.txt")
+async def llms():
+    return FileResponse(os.path.join(STATIC_DIR, "llms.txt"), media_type="text/plain")
 
 
 if __name__ == "__main__":

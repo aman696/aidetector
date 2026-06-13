@@ -1,0 +1,23 @@
+# Human or AI? — free, private AI image detector
+# Everyone is welcome to crawl, including AI assistants (we want to be found and cited).
+
+User-agent: *
+Allow: /
+
+# Explicitly welcome AI / answer-engine crawlers (GEO)
+User-agent: GPTBot
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: Claude-Web
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://humanorai.app/sitemap.xml
