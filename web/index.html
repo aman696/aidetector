@@ -9,6 +9,23 @@
         content="Check whether a photo was made by an AI or taken by a real camera. Free, no sign-up. Your image is deleted the moment it's scanned — never stored, never used for training.">
     <meta name="theme-color" content="#2563eb">
     <meta name="robots" content="index,follow">
+    <link rel="canonical" href="https://CHANGE-ME.example/">
+
+    <!-- Open Graph + Twitter (swap CHANGE-ME.example for the real domain at deploy;
+         absolute URLs are required for og:image/og:url to render in shares). -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Is this image AI-generated? — Free, private detector">
+    <meta property="og:description"
+        content="Check whether a photo was made by an AI or a real camera. Free, no sign-up, and your image is deleted the moment it's scanned.">
+    <meta property="og:url" content="https://CHANGE-ME.example/">
+    <meta property="og:image" content="https://CHANGE-ME.example/static/og-image.png">
+    <meta property="og:site_name" content="Is it AI?">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Is this image AI-generated? — Free, private detector">
+    <meta name="twitter:description"
+        content="Free, no sign-up AI image detector that deletes every upload after scanning.">
+    <meta name="twitter:image" content="https://CHANGE-ME.example/static/og-image.png">
+
     <!-- System font stack: no external font request (faster + nothing leaves your browser). -->
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -155,6 +172,55 @@
 
         .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
     </style>
+
+    <!-- Structured data: read by Google and AI assistants to describe the tool. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebApplication",
+          "name": "Is it AI?",
+          "url": "https://CHANGE-ME.example/",
+          "description": "A free, private tool that estimates whether an image was made by an AI generator or captured by a real camera, and explains why in plain language. Uploads are deleted immediately after scanning and never used for training.",
+          "applicationCategory": "MultimediaApplication",
+          "operatingSystem": "Any (web browser)",
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+          "featureList": [
+            "Detects AI-generated images",
+            "Explains the result in plain language",
+            "No sign-up or account",
+            "Images deleted after scanning, never stored or used for training"
+          ]
+        },
+        {
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Is it free?",
+              "acceptedAnswer": { "@type": "Answer", "text": "Yes — free, with no account or sign-up." }
+            },
+            {
+              "@type": "Question",
+              "name": "Do you keep my photos?",
+              "acceptedAnswer": { "@type": "Answer", "text": "No. Each upload is deleted the moment the scan finishes. Nothing is stored, logged, or used for training." }
+            },
+            {
+              "@type": "Question",
+              "name": "How accurate is it?",
+              "acceptedAnswer": { "@type": "Answer", "text": "It reliably flags mainstream AI generators and real photos and holds up on social-media and screenshot images. It is an estimate, not proof; newer flow-style generators are harder, so use your own judgment too." }
+            },
+            {
+              "@type": "Question",
+              "name": "What can it detect?",
+              "acceptedAnswer": { "@type": "Answer", "text": "Fully AI-generated images from common tools such as Stable Diffusion, DALL-E, Midjourney, Firefly, and chat-AI image makers. It is not a deepfake or photo-edit detector." }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
 </head>
 
 <body>
@@ -407,6 +473,11 @@
               ${d.screenshot_warning ? `<div class="note info">${d.screenshot_warning}</div>` : ''}
               <details class="detail">
                 <summary>See the detailed analysis</summary>
+                <p style="padding:0 18px 10px;margin:0;font-size:12px;color:var(--muted)">
+                  These signals are tuned to tell <strong>camera photos</strong> from
+                  <strong>AI-generated images</strong>. Screenshots, graphics, diagrams or artwork
+                  can read high here without being AI — the verdict above already accounts for that.
+                </p>
                 <div class="bars">${scoreRows || '<p style="color:var(--muted);font-size:13px">No detailed signals available.</p>'}</div>
               </details>
             </div>`;
