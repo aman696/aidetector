@@ -1,0 +1,71 @@
+"""
+Security/hardening tests for the web app (app.py), via FastAPI's TestClient
+(no real sockets, so no curl/multipart flakiness). Covers the controls added
+for deployment: health check, security headers, upload validation, request-size
+limit, and per-IP rate limiting.
+
+Skipped cleanly if the v2 model isn't present (the /api/detect guard returns 503
+before validation otherwise).
+"""
+
+import pytest
+from fastapi.testclient import TestClient
+
+import app as appmod
+
+client = TestClient(appmod.app)
+needs_model = pytest.mark.skipif(appmod.detector is None, reason="v2 model not loaded")
+
+PNG_MAGIC = b"\x89PNG\r\n\x1a\n"  # not enough to be a valid image, but right magic
+
+
+class TestBasics:
+    def test_healthz(self):
+        r = client.get("/healthz")
+        assert r.status_code == 200
+        assert r.json()["status"] == "ok"
+
+    def test_security_headers_present(self):
+        r = client.get("/")
+        assert r.headers["x-content-type-options"] == "nosniff"
+        assert r.headers["x-frame-options"] == "DENY"
+        assert "content-security-policy" in r.headers
+        assert "referrer-policy" in r.headers
+
+    def test_docs_disabled_in_prod(self):
+        # DEBUG defaults off -> interactive docs should not be served.
+        assert client.get("/docs").status_code == 404
+        assert client.get("/openapi.json").status_code == 404
+
+
+@needs_model
+class TestUploadValidation:
+    def test_wrong_extension_rejected(self):
+        r = client.post("/api/detect", files={"file": ("x.txt", b"hello", "text/plain")})
+        assert r.status_code == 400
+
+    def test_non_image_content_rejected(self):
+        # right extension, but the bytes are not a real image
+        r = client.post("/api/detect", files={"file": ("x.png", b"not an image", "image/png")})
+        assert r.status_code == 400
+
+    def test_oversize_rejected_413(self):
+        big = b"\x00" * (appmod.MAX_FILE_SIZE + 5000)
+        r = client.post("/api/detect", files={"file": ("x.jpg", big, "image/jpeg")})
+        assert r.status_code == 413
+
+    def test_error_message_is_generic(self):
+        # no internal exception text leaks to the client
+        r = client.post("/api/detect", files={"file": ("x.png", b"not an image", "image/png")})
+        assert "Traceback" not in r.text and "/home/" not in r.text
+
+
+@needs_model
+class TestRateLimiting:
+    def test_rate_limit_trips_429(self):
+        # fire well past the per-IP limit; cheap because invalid uploads are
+        # rejected before any model inference, but each still counts.
+        codes = [client.post("/api/detect",
+                             files={"file": ("x.png", b"nope", "image/png")}).status_code
+                 for _ in range(30)]
+        assert 429 in codes, f"expected a 429 among {set(codes)}"
