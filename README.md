@@ -1,8 +1,14 @@
 # AI Image Detector
 
-> **A research-grade, rule-based system for detecting AI-generated images** using classical
+> **A research-grade system for detecting AI-generated images** using classical
 > signal processing (FFT, eigenvalue decomposition, DCT, noise residuals, gradients, texture)
-> feeding a dual-SVM architecture. No deep learning — every decision is explainable.
+> feeding an SVM. v1 uses no deep learning; v2 (in progress) adds frozen DINOv2 embeddings
+> on top of the classical features. Every classical decision is explainable.
+
+> **Status — v2 upgrade in progress.** The shipped models and the numbers below describe v1.
+> v2 is a single unified detector (classical + DINOv2, 855-dim) that also targets
+> social-media-compressed, screenshotted, and chained images; see `V2_PROGRESS.md` (local) for
+> the live build state.
 
 ---
 

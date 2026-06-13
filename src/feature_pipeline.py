@@ -110,7 +110,7 @@ def _check_and_write_meta(skip_embeddings: bool) -> None:
 # --------------------------------------------------------------------------- #
 
 def _ensure_classical(ids: Sequence[str], paths: Sequence[str],
-                      n_workers: int, verbose: bool) -> None:
+                      n_workers: int, verbose: bool, chunk: int = 512) -> None:
     missing = [(i, p) for i, p in zip(ids, paths)
                if not os.path.exists(_classical_path(i))]
     if not missing:
@@ -121,9 +121,18 @@ def _ensure_classical(ids: Sequence[str], paths: Sequence[str],
     extractor = FeatureExtractor()
     mids = [m[0] for m in missing]
     mpaths = [m[1] for m in missing]
-    matrix = extractor.extract_batch(mpaths, verbose=verbose, n_workers=n_workers)
-    for rec_id, vec in zip(mids, matrix):
-        np.save(_classical_path(rec_id), vec.astype(np.float32))
+    # Extract and SAVE in chunks so an interruption keeps completed work —
+    # extract_batch returns only at the end of its batch, so a single
+    # all-rows call would cache nothing until the whole multi-hour pass done.
+    for k in range(0, len(missing), chunk):
+        c_ids = mids[k:k + chunk]
+        c_paths = mpaths[k:k + chunk]
+        matrix = extractor.extract_batch(c_paths, verbose=verbose,
+                                         n_workers=n_workers)
+        for rec_id, vec in zip(c_ids, matrix):
+            np.save(_classical_path(rec_id), vec.astype(np.float32))
+        if verbose:
+            print(f"  [classical] {min(k + chunk, len(missing))}/{len(missing)}")
 
 
 # --------------------------------------------------------------------------- #

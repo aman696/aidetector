@@ -9,9 +9,16 @@ research) is linked from here.
 
 ## 1. What this repo is
 
-A **rule-based AI-image detector**: classical signal processing (FFT, eigenvalues, DCT, noise
-residuals, gradients, texture) feeding an SVM — deliberately **no deep learning**. It is a research
-implementation / portfolio project, not a production service.
+A research-grade AI-image detector. It is a research implementation / portfolio project, not a
+production service.
+
+- **v1 (shipped):** classical signal processing (FFT, eigenvalues, DCT, noise residuals,
+  gradients, texture) feeding an SVM — no deep learning, every decision explainable.
+- **v2 (in progress):** one unified detector that adds frozen **DINOv2** embeddings + RIGID
+  noise-drift on top of the 85 classical features (855-dim hybrid), trained to also hold up on
+  social-media-compressed, screenshotted, and chained images. Live build state: `V2_PROGRESS.md`
+  (local only). So "no deep learning" describes v1 only — v2 deliberately adds one frozen
+  backbone while keeping a classical-only fallback for torch-less environments.
 
 - Full architecture, commands, training pipelines → **[WORKFLOW.md](WORKFLOW.md)**
 - Literature review, known failure modes, roadmap → **[RESEARCH.md](RESEARCH.md)**

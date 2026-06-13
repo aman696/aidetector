@@ -1,5 +1,12 @@
 # AI Image Detector — Workflow Reference
 
+> **This document describes the v1 workflow.** A v2 upgrade is in progress (one unified
+> classical + DINOv2 detector, 855-dim, covering social-media/screenshot/chained images),
+> adding `src/dataset.py`, `src/channels.py`, `src/feature_pipeline.py`,
+> `src/embedding_extractor.py`, `src/train_unified.py`. This file gets its full v2 rewrite when
+> the v2 path is wired into `main.py`/`app.py` (Stage 7). Until then, the live v2 state and
+> commands are in `V2_PROGRESS.md` (local only).
+
 > **Last updated:** June 11, 2026
 > **Main model:** `models/svm_classifier.pkl` (sklearn SVM, 79 features, GPU-trained then converted) — CV 74%, test 82.3%
 > **Screenshot model:** `models/screenshot_classifier.pkl` (sklearn SVM, 15 features) — CV 98% (likely overfit; test 96.6% AI / ~85% real)
