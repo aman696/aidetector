@@ -14,6 +14,7 @@ Pipeline:
 5. Falls back to weighted voting if no trained model available
 """
 
+import hashlib
 import os
 import tempfile
 import numpy as np
@@ -172,8 +173,14 @@ class FeatureExtractor:
             if img is None:
                 return _zero
 
-            # Add tiny Gaussian noise (sigma=2, well within quantization noise)
-            noise = np.random.normal(0, 2, img.shape).astype(np.float64)
+            # Add tiny Gaussian noise (sigma=2, well within quantization noise).
+            # Seeded from the image content so these drift features are
+            # reproducible: the Stage 4 pipeline caches them per id, and an
+            # unseeded draw would freeze a different realization on every run.
+            seed = int.from_bytes(
+                hashlib.md5(np.ascontiguousarray(img).tobytes()).digest()[:8], 'big')
+            rng = np.random.default_rng(seed)
+            noise = rng.normal(0, 2, img.shape)
             noisy = np.clip(img.astype(np.float64) + noise, 0, 255).astype(np.uint8)
 
             # Save noisy version temporarily
