@@ -114,10 +114,11 @@ def extract_patchcraft_features(image_path: str) -> Dict[str, float]:
         image_path: Path to the image file.
 
     Returns:
-        Dictionary with 3 features:
-            - texture_contrast: mean(rich) - mean(poor); higher = more AI-like
-            - texture_rich_mean: average variance in rich-texture patches
-            - texture_poor_mean: average variance in poor-texture patches
+        Dictionary with 3 features (all built from per-patch l_div, the mean
+        absolute neighbour difference; see compute_patch_ldiv):
+            - texture_contrast: mean(rich) - mean(poor)
+            - texture_rich_mean: mean l_div over the rich-texture patches (top 50%)
+            - texture_poor_mean: mean l_div over the poor-texture patches (bottom 50%)
     """
     _default = {
         'texture_contrast': 0.0,

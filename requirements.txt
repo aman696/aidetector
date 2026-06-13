@@ -8,3 +8,8 @@ pytest
 fastapi
 uvicorn
 pydantic
+
+# Optional (hybrid v2 embeddings). The repo runs classical-only without these;
+# install for the DINOv2 path: pip install torch timm
+torch
+timm
