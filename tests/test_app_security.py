@@ -69,3 +69,22 @@ class TestRateLimiting:
                              files={"file": ("x.png", b"nope", "image/png")}).status_code
                  for _ in range(30)]
         assert 429 in codes, f"expected a 429 among {set(codes)}"
+
+
+@needs_model
+class TestOverloadGuard:
+    def test_full_queue_returns_503(self, monkeypatch):
+        # With no slots and no queue, a VALID upload is turned away (503) before
+        # any processing — the bounded-queue overload guard.
+        import io
+        from PIL import Image
+        buf = io.BytesIO()
+        Image.new("RGB", (8, 8)).save(buf, "PNG")
+        monkeypatch.setattr(appmod, "MAX_CONCURRENT", 0)
+        monkeypatch.setattr(appmod, "MAX_QUEUE", 0)
+        # unique client IP -> fresh rate-limit bucket (other tests exhaust the
+        # shared one), so we reach the overload guard rather than a 429.
+        r = client.post("/api/detect",
+                        files={"file": ("x.png", buf.getvalue(), "image/png")},
+                        headers={"X-Forwarded-For": "203.0.113.7"})
+        assert r.status_code == 503

@@ -14,6 +14,7 @@ that would break the privacy claim. Controls live in `app.py`; the reverse proxy
 |---|---|---|---|
 | 1 | **Per-IP rate limiting** (`slowapi`, `RATE_LIMIT`, default 20/min on `/api/detect`) | `@limiter.limit(...)` | abuse, brute-force, request floods |
 | 2 | **Concurrency cap** on heavy scans (`asyncio.Semaphore(MAX_CONCURRENT)`, default 2) | `async with _detect_sem` | CPU/RAM exhaustion from parallel scans |
+| 2b | **Bounded queue** (`MAX_QUEUE`, default 10) — beyond running+waiting, return `503` instead of piling up; **per-scan timeout** (`SCAN_TIMEOUT`, default 60 s) frees a stuck slot | `_inflight` counter + `asyncio.wait_for` | flood pile-up / a hung scan holding a slot |
 | 3 | **Non-blocking offload** of the sync model work | `run_in_threadpool(_run_detection, ...)` | event-loop starvation (one slow scan freezing the whole server) |
 | 4 | **Request-size limit** before reading body into memory | `Content-Length` precheck + `len(contents)` check vs `MAX_FILE_SIZE` (10 MB) | memory-exhaustion DoS |
 | 5 | **Real-image + dimension validation** | `_validate_image_bytes` (PIL magic/format, `MAX_IMAGE_PIXELS`=50 MP, `MAX_DIMENSION`=12000) | decompression / pixel bombs, non-image payloads |
@@ -50,6 +51,8 @@ The app is meant to sit behind Caddy, which adds, independent of the app:
 | `MAX_PIXELS` | `50000000` | max decoded pixels (bomb guard) |
 | `MAX_DIMENSION` | `12000` | max side length |
 | `MAX_CONCURRENT` | `2` | simultaneous heavy scans |
+| `MAX_QUEUE` | `10` | extra requests allowed to wait before returning 503 |
+| `SCAN_TIMEOUT` | `60` | seconds per scan before giving up (503) |
 | `RATE_LIMIT` | `20/minute` | per-IP limit on `/api/detect` |
 | `ALLOWED_HOSTS` | `*` | comma-separated; set to `humanorai.online` in prod |
 | `PORT` | `8000` | listen port (host platforms inject this) |

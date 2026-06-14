@@ -51,7 +51,9 @@ DEBUG = os.getenv("DEBUG", "0") == "1"
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", str(10 * 1024 * 1024)))  # 10 MB
 MAX_PIXELS = int(os.getenv("MAX_PIXELS", str(50_000_000)))             # 50 MP
 MAX_DIMENSION = int(os.getenv("MAX_DIMENSION", "12000"))              # per side
-MAX_CONCURRENT = int(os.getenv("MAX_CONCURRENT", "2"))               # heavy scans
+MAX_CONCURRENT = int(os.getenv("MAX_CONCURRENT", "2"))               # heavy scans at once
+MAX_QUEUE = int(os.getenv("MAX_QUEUE", "10"))                        # extra requests allowed to wait
+SCAN_TIMEOUT = float(os.getenv("SCAN_TIMEOUT", "60"))               # seconds per scan before giving up
 RATE_LIMIT = os.getenv("RATE_LIMIT", "20/minute")                    # per IP, /api/detect
 ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "*").split(",") if h.strip()]
 
@@ -137,8 +139,11 @@ if ALLOWED_HOSTS and ALLOWED_HOSTS != ["*"]:
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
 
 # Bound the number of simultaneous heavy detections (each is CPU-intensive).
+# _inflight = requests currently running OR waiting for a slot; used to cap the
+# queue so a flood is turned away (503) instead of piling up unbounded.
 import asyncio
 _detect_sem = asyncio.Semaphore(MAX_CONCURRENT)
+_inflight = 0
 
 # --------------------------------------------------------------------------- #
 # Model
@@ -242,6 +247,13 @@ async def detect_image(request: Request, file: UploadFile, mode: str = Form("nor
         raise HTTPException(413, "File too large. Maximum size is 10 MB.")
     _validate_image_bytes(contents)
 
+    # Overload guard: at most MAX_CONCURRENT running + MAX_QUEUE waiting. Beyond
+    # that, turn requests away immediately instead of letting them pile up.
+    global _inflight
+    if _inflight >= MAX_CONCURRENT + MAX_QUEUE:
+        raise HTTPException(503, "The server is busy right now — please try again in a moment.")
+    _inflight += 1
+
     tmp_dir = tempfile.mkdtemp()
     tmp_path = os.path.join(tmp_dir, f"upload{ext}")
     try:
@@ -249,15 +261,23 @@ async def detect_image(request: Request, file: UploadFile, mode: str = Form("nor
             f.write(contents)
         start = time.time()
         async with _detect_sem:
-            payload = await run_in_threadpool(_run_detection, tmp_path)
+            # Per-scan timeout so a stuck image can't hold a slot forever. (The
+            # worker thread can't be force-killed, but the slot is freed and the
+            # client gets a clean response.)
+            payload = await asyncio.wait_for(
+                run_in_threadpool(_run_detection, tmp_path), timeout=SCAN_TIMEOUT)
         payload["analysis_time"] = round(time.time() - start, 2)
         return payload
+    except asyncio.TimeoutError:
+        logger.warning("Scan exceeded %ss timeout", SCAN_TIMEOUT)
+        raise HTTPException(503, "That image took too long to scan — please try again.")
     except HTTPException:
         raise
     except Exception:
         logger.exception("Detection failed")          # full detail server-side only
         raise HTTPException(500, "Analysis failed. Please try a different image.")
     finally:
+        _inflight -= 1
         shutil.rmtree(tmp_dir, ignore_errors=True)     # PRIVACY: upload deleted now
 
 
