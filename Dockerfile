@@ -28,8 +28,11 @@ RUN pip install -r requirements-deploy.txt
 
 # Full model: CPU-only PyTorch (the cpu index avoids the multi-GB CUDA build).
 ARG INCLUDE_TORCH=1
+# torch AND torchvision from the same CPU index so their compiled ops match
+# (timm imports torchvision; a mismatched pair fails with "torchvision::nms
+# does not exist" and silently drops the app to the classical fallback).
 RUN if [ "$INCLUDE_TORCH" = "1" ]; then \
-        pip install torch==2.12.0 --index-url https://download.pytorch.org/whl/cpu && \
+        pip install torch==2.12.0 torchvision --index-url https://download.pytorch.org/whl/cpu && \
         pip install timm==1.0.27 ; \
     fi
 

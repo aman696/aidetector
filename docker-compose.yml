@@ -1,0 +1,40 @@
+# Self-host stack for humanorai.online: the app + a Cloudflare Tunnel, one command.
+#   docker compose up -d --build
+#
+# - `app`        : the FastAPI detector (full model). Published ONLY to localhost
+#                  on the laptop (127.0.0.1) for testing — never exposed on the LAN.
+# - `cloudflared`: the outbound tunnel to Cloudflare. It reaches the app over the
+#                  private compose network as http://app:8000, so the public only
+#                  ever talks to Cloudflare (your home IP stays hidden).
+#
+# Put your tunnel token in a .env file next to this (see .env.example).
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        INCLUDE_TORCH: "1"          # full model; set "0" for the lean classical-only build
+    restart: always
+    environment:
+      ALLOWED_HOSTS: "humanorai.online,localhost,127.0.0.1"
+      MAX_CONCURRENT: "2"
+      RATE_LIMIT: "20/minute"
+      PORT: "8000"
+    expose:
+      - "8000"                       # visible to cloudflared on the compose network
+    ports:
+      - "127.0.0.1:8000:8000"        # localhost-only on the laptop, for your own testing
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s             # first boot loads the model / weights
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: always
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    depends_on:
+      - app

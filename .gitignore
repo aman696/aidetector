@@ -29,3 +29,6 @@ V2_PROGRESS.md
 .idea/
 .vscode/
 .claude/
+
+# secrets (Cloudflare tunnel token)
+.env
