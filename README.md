@@ -1,5 +1,7 @@
 # AI Image Detector
 
+> **Live demo: [humanorai.online](https://humanorai.online)** — free, private (images are deleted right after scanning), no sign-up.
+
 > **A research-grade system for detecting AI-generated images** using classical
 > signal processing (FFT, eigenvalue decomposition, DCT, noise residuals, gradients, texture)
 > feeding an SVM. v1 uses no deep learning; v2 (in progress) adds frozen DINOv2 embeddings
