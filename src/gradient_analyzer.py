@@ -98,12 +98,16 @@ def extract_gradient_features(image_path: str) -> Dict[str, float]:
         if not np.isfinite(grad_kurt):
             grad_kurt = 0.0
 
-        # Laplacian features
+        # Laplacian features.
+        # lap_mean is the mean MAGNITUDE (the signed Laplacian is ~zero-mean, so
+        # its mean carries no information). lap_var is the variance of the SIGNED
+        # Laplacian -- the canonical Pech-Pacheco "variance of Laplacian" focus
+        # measure. var(|L|) (the prior bug) is a different, smaller statistic
+        # because |.| removes sign: var(|L|) = E[L^2] - E[|L|]^2 < E[L^2] ~ var(L).
         laplacian = compute_laplacian(img)
-        flat_lap = np.abs(laplacian).flatten()
 
-        lap_mean = float(np.mean(flat_lap))
-        lap_var = float(np.var(flat_lap))
+        lap_mean = float(np.mean(np.abs(laplacian)))
+        lap_var = float(np.var(laplacian))
 
         return {
             'gradient_mean': grad_mean,
