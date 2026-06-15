@@ -61,6 +61,35 @@ class TestComputeNprMap:
         assert np.abs(npr).mean() > 0, "Checkerboard should produce nonzero NPR"
 
 
+class TestSynthetic2x2Pattern:
+    """The NPR residual is exactly the within-2x2-grid difference from the
+    top-left pixel (nearest-neighbour down/up). A tiled 2x2 block has a residual
+    we can compute by hand -- the core mechanic, asserted exactly."""
+
+    def test_known_2x2_residual(self):
+        a, b, c, d = 10, 50, 90, 130
+        tile = np.array([[a, b], [c, d]], dtype=np.uint8)
+        img = np.tile(tile, (32, 32))  # 64x64, 2x2-periodic
+        npr = compute_npr_map(img)
+        # down-samples a; up repeats a -> residual = [[0, b-a], [c-a, d-a]] tiled.
+        expected = np.tile(
+            np.array([[0, b - a], [c - a, d - a]], dtype=np.float64), (32, 32))
+        assert np.allclose(npr, expected)
+
+    def test_uniform_2x2_tile_is_zero(self):
+        # When the 2x2 cell is itself flat, the within-grid residual vanishes.
+        img = np.tile(np.array([[60, 60], [60, 60]], dtype=np.uint8), (32, 32))
+        assert np.allclose(compute_npr_map(img), 0.0)
+
+    def test_diagonal_vs_axial_directionality(self):
+        # A 2x2 tile with only a diagonal step (top-left == bottom-right,
+        # off-diagonal differ) should leave nonzero, finite directional residue.
+        img = np.tile(np.array([[20, 80], [80, 20]], dtype=np.uint8), (40, 40))
+        npr = compute_npr_map(img)
+        assert np.isfinite(npr).all()
+        assert np.abs(npr).mean() > 0.0
+
+
 class TestExtractNprFeatures:
     def test_constant_image_defaults(self):
         feats = extract_npr_features('/nonexistent/path')
