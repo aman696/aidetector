@@ -79,8 +79,35 @@ def seed_for_id(rec_id: str) -> int:
     return int.from_bytes(digest[:8], "big") % (2 ** 63)
 
 
+# Bump when a classical feature's COMPUTATION changes but its NAME does not.
+# _classical_version hashes the names, so a value-only formula fix (e.g. FFT power
+# spectrum, eigen band power/partition, signed Laplacian variance, DCT AC-only
+# variance, in-memory drift) would otherwise leave the cached .npy files valid
+# and silently reuse stale features. Bumping this forces re-extraction.
+#   "1" -> original; "2" -> 2026-06-14 audit formula fixes.
+_CLASSICAL_FORMULA_EPOCH = "2"
+
+
 def _classical_version() -> str:
-    return hashlib.md5("|".join(CLASSICAL_NAMES).encode("utf-8")).hexdigest()[:12]
+    payload = "|".join(CLASSICAL_NAMES) + "#epoch=" + _CLASSICAL_FORMULA_EPOCH
+    return hashlib.md5(payload.encode("utf-8")).hexdigest()[:12]
+
+
+def classical_cache_current() -> bool:
+    """True if the on-disk classical cache matches the current feature version.
+
+    Lets end-to-end callers/tests SKIP (rather than hard-error) when a feature
+    formula change has invalidated the cache and it has not been re-extracted
+    yet. Returns False when no cache exists or the version/epoch differs.
+    """
+    if not os.path.exists(CACHE_META_PATH):
+        return False
+    try:
+        with open(CACHE_META_PATH) as f:
+            old = json.load(f)
+    except Exception:
+        return False
+    return old.get("classical_version") == _classical_version()
 
 
 def _check_and_write_meta(skip_embeddings: bool) -> None:
