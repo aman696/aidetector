@@ -19,7 +19,10 @@ split in dataset.py):
 Probability handling: the grid scores with ROC-AUC over decision_function
 (probability=False, since Platt scaling = an inner CV that multiplies cost
 and is deprecated in sklearn >= 1.9). The saved model is calibrated once via
-CalibratedClassifierCV(ensemble=False) so the web/CLI gets a 0-1 confidence.
+CalibratedClassifierCV(ensemble=False), and that calibration CV is ALSO
+group-aware (explicit StratifiedGroupKFold index splits on base_id) so the
+sigmoid is not fit on near-duplicate variants of its own held-out rows -- which
+would optimistically bias accuracy@0.5 and the clean-accuracy gate.
 
 Run: `python -m src.train_unified` (see --help). Bundle rationale and the
 row budget live in code_notes/18-training.md.
@@ -151,12 +154,21 @@ def train_from_matrix(
 
     # Final model is ALWAYS sklearn so the pickle is portable (CPU eval/web,
     # no cuML). Calibrated once for predict_proba.
-    final = Pipeline([
+    #
+    # The calibration CV MUST be group-aware: variants of one base_id straddling
+    # a calibration fold leak near-duplicates into the sigmoid fit and
+    # optimistically bias every threshold-dependent metric (accuracy@0.5 and the
+    # clean-accuracy gate). cv=<int> would silently use plain StratifiedKFold, so
+    # we pass explicit StratifiedGroupKFold index splits. The scaler also lives
+    # INSIDE the calibrated estimator so it is refit on each calibration fold's
+    # train rows only (no scaler leakage into the held-out calibration data).
+    base_est = Pipeline([
         ("scaler", StandardScaler()),
-        ("clf", CalibratedClassifierCV(
-            SVC(class_weight="balanced", max_iter=max_iter, **best),
-            method="sigmoid", cv=splits, ensemble=False)),
+        ("svc", SVC(class_weight="balanced", max_iter=max_iter, **best)),
     ])
+    cal_splits = list(StratifiedGroupKFold(n_splits=splits).split(X, y, groups))
+    final = CalibratedClassifierCV(
+        base_est, method="sigmoid", cv=cal_splits, ensemble=False)
     final.fit(X, y)
 
     bundle = {

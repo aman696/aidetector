@@ -85,6 +85,35 @@ class TestTrainFromMatrix:
         assert loaded["feature_names"] == bundle["feature_names"]
 
 
+class TestCalibrationIsGroupAware:
+    """The final CalibratedClassifierCV must calibrate with group-aware folds, or
+    base_id variants leak into the sigmoid fit and bias threshold metrics."""
+
+    def test_no_base_id_straddles_a_calibration_fold(self, monkeypatch):
+        X, y, groups = _grouped_blobs(n_groups=24, per_group=6)
+        captured = {}
+        real_ccv = tu.CalibratedClassifierCV
+
+        def spy(*args, **kwargs):
+            captured["cv"] = kwargs.get("cv")
+            return real_ccv(*args, **kwargs)
+
+        monkeypatch.setattr(tu, "CalibratedClassifierCV", spy)
+        tu.train_from_matrix(
+            X, y, groups, [f"f{i}" for i in range(X.shape[1])],
+            embed_model_name=None, classical_only=True,
+            n_splits=3, c_values=[1.0], gamma_values=["scale"],
+            n_jobs=1, verbose=False,
+        )
+        cv = captured["cv"]
+        # Must be explicit index splits, not an int (which would silently become
+        # plain, non-group-aware StratifiedKFold).
+        assert isinstance(cv, list) and len(cv) >= 2
+        for train_idx, test_idx in cv:
+            assert set(groups[train_idx]).isdisjoint(set(groups[test_idx])), \
+                "a base_id straddles a calibration fold -> leakage"
+
+
 class TestEmbeddingAblation:
     def test_returns_auc_in_unit_range(self):
         X, y, groups = _grouped_blobs()
