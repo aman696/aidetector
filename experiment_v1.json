@@ -1,0 +1,244 @@
+{
+  "experiment": "v1",
+  "created_at": "2026-06-15T15:59:16.370155+00:00",
+  "goal": "Recreate every reported number for the v2 unified detector.",
+  "git": {
+    "commit": "fae6986e7abf17198cb8ec16e41c138c91cd25aa",
+    "branch": "audit-feature-fixes",
+    "dirty": false
+  },
+  "dataset": {
+    "version": "72b88efc0497",
+    "content_sha256": "72b88efc04973dd8b4fb6597c2ee9ca91a7add8552b5a5b2431631e1b92b0193",
+    "manifest_file_sha256": {
+      "base_manifest.json": "f1118b720161988d7b6e565723dc43c028badd87519e9381d06043e7dea2282c",
+      "splits.json": "14dae7721e0d98b7bdb417a4ad5d142db0499d7bd522dc1052bc74fa09b230b7",
+      "derived_manifest.json": "ef35b268f97876e360a038cc1b00523959ed76411704f7f0c14605bda072e4e3"
+    },
+    "base_images": {
+      "total": 4271,
+      "ai": 2271,
+      "real": 2000
+    },
+    "n_generator_families": 34,
+    "generators": [
+      "aurora_20_1_25",
+      "chroma",
+      "dalle_2",
+      "dalle_3",
+      "firefly",
+      "flux_1",
+      "frames_23_1_25",
+      "gemini",
+      "glide",
+      "gpt",
+      "gpt_image_1",
+      "grok_2_image_1212",
+      "halfmoon_4_4_25",
+      "hidream_i1_full",
+      "ideogram_2.0",
+      "ideogram_3.0",
+      "imagen_3.0_002",
+      "imagen_4.0",
+      "lumina_17_2_25",
+      "midjourney_6",
+      "midjourney_7",
+      "midjourney_v5",
+      "mystic",
+      "recraft_v2",
+      "recraft_v3",
+      "sd_1.5",
+      "sd_1.5_dreamshaper",
+      "sd_1.5_epicdream",
+      "sd_2.1",
+      "stable_diffusion_1_3",
+      "stable_diffusion_1_4",
+      "stable_diffusion_2",
+      "stable_diffusion_3",
+      "stable_diffusion_xl"
+    ],
+    "real_sources": [
+      "coco",
+      "openfake"
+    ],
+    "per_family_counts": {
+      "aurora_20_1_25": 64,
+      "chroma": 64,
+      "coco": 1000,
+      "dalle_2": 64,
+      "dalle_3": 63,
+      "firefly": 63,
+      "flux_1": 63,
+      "frames_23_1_25": 63,
+      "gemini": 209,
+      "glide": 63,
+      "gpt": 62,
+      "gpt_image_1": 63,
+      "grok_2_image_1212": 63,
+      "halfmoon_4_4_25": 44,
+      "hidream_i1_full": 63,
+      "ideogram_2.0": 63,
+      "ideogram_3.0": 63,
+      "imagen_3.0_002": 63,
+      "imagen_4.0": 63,
+      "lumina_17_2_25": 63,
+      "midjourney_6": 63,
+      "midjourney_7": 63,
+      "midjourney_v5": 63,
+      "mystic": 63,
+      "openfake": 1000,
+      "recraft_v2": 63,
+      "recraft_v3": 63,
+      "sd_1.5": 63,
+      "sd_1.5_dreamshaper": 63,
+      "sd_1.5_epicdream": 63,
+      "sd_2.1": 63,
+      "stable_diffusion_1_3": 63,
+      "stable_diffusion_1_4": 63,
+      "stable_diffusion_2": 63,
+      "stable_diffusion_3": 63,
+      "stable_diffusion_xl": 63
+    },
+    "derived_records": {
+      "total": 23577,
+      "by_condition": {
+        "chain_fb_x": 2665,
+        "chain_ss_tg": 2723,
+        "facebook": 3210,
+        "screenshot": 8530,
+        "telegram": 3203,
+        "x": 3246
+      }
+    },
+    "splits": {
+      "seed": 42,
+      "train_frac": 0.7,
+      "val_frac": 0.1,
+      "holdout_families": [
+        "midjourney_7",
+        "ideogram_3.0",
+        "imagen_4.0",
+        "flux_1",
+        "recraft_v3"
+      ],
+      "base_level_counts": {
+        "test": 802,
+        "test_holdout": 315,
+        "train": 2767,
+        "val": 387
+      }
+    }
+  },
+  "features": {
+    "total": 855,
+    "classical": 85,
+    "embedding": 770,
+    "classical_version": "01ae6c390125",
+    "classical_formula_epoch": "2",
+    "embedding_model": "vit_base_patch14_dinov2.lvd142m",
+    "feature_names_sha256": "dec71c728acdbdf4efb628cbab5b2954b9a33649f8d9eb6447efc1bbe303909a"
+  },
+  "seeds": {
+    "split_assignment": 42,
+    "train_subsample": 42,
+    "per_image_embedding_noise": "md5(record_id) -> 63-bit (feature_pipeline.seed_for_id)",
+    "classical_drift_noise": "md5(decoded BGR pixel bytes) (classifier._compute_drift_features)",
+    "cv": "StratifiedGroupKFold(groups=base_id) -- deterministic, no random_state"
+  },
+  "model": {
+    "grid": {
+      "C": [
+        1.0,
+        10.0,
+        100.0
+      ],
+      "gamma": [
+        "scale",
+        0.001,
+        0.0001
+      ],
+      "kernels": [
+        "rbf",
+        "linear"
+      ],
+      "max_iter": 5000,
+      "class_weight": "balanced",
+      "scoring": "roc_auc (decision_function)",
+      "cv_folds": 5,
+      "cv_splitter": "StratifiedGroupKFold(groups=base_id)"
+    },
+    "calibration": {
+      "method": "sigmoid",
+      "ensemble": false,
+      "cv": "group-aware StratifiedGroupKFold index splits (scaler inside)"
+    },
+    "unified": {
+      "file": "models/unified_v2.pkl",
+      "sha256": "3d7c8d4b8a2a994f8c61b4361573496e6ccdc5f8f6dff909fd1d8f155bc0155b",
+      "bundle_version": 2,
+      "trained_at": "2026-06-15T13:10:18",
+      "trained_on_gpu": true,
+      "n_train_rows": 16593,
+      "n_features": 855,
+      "best_params": {
+        "kernel": "rbf",
+        "C": 10.0,
+        "gamma": 0.001
+      },
+      "cv_roc_auc": 0.9317548330600328
+    },
+    "classical_only": {
+      "file": "models/classical_v2.pkl",
+      "sha256": "0a899b5444693f9e1609b0a8a6e29f1a78d61d98d41e0dea19428cc62be1dc14",
+      "bundle_version": 2,
+      "trained_at": "2026-06-15T13:10:42",
+      "trained_on_gpu": true,
+      "n_train_rows": 16593,
+      "n_features": 85,
+      "best_params": {
+        "kernel": "rbf",
+        "C": 1.0,
+        "gamma": "scale"
+      },
+      "cv_roc_auc": 0.7902925227189297
+    }
+  },
+  "reported_metrics": {
+    "source": "reports/eval_v2_20260615.json",
+    "evaluated_at": "2026-06-15T14:30:47",
+    "assembled_rows": {
+      "train": 16593,
+      "test": 6414,
+      "test_holdout": 2520
+    },
+    "embedding_only_cv_roc_auc": 0.8696319219492825,
+    "unified_overall": {
+      "n": 6414,
+      "n_ai": 3216,
+      "n_real": 3198,
+      "accuracy": 0.8642033052697224,
+      "auc": 0.9397327192990644,
+      "ap": 0.9403530802542366,
+      "pd_at_5far": 0.7145522388059702
+    },
+    "classical_overall": {
+      "n": 6414,
+      "n_ai": 3216,
+      "n_real": 3198,
+      "accuracy": 0.7807920174618023,
+      "auc": 0.8629441130806256,
+      "ap": 0.8559021531964299,
+      "pd_at_5far": 0.4362562189054726
+    }
+  },
+  "reproduce": {
+    "steps": [
+      "Restore data/ so dataset.content_sha256 matches.",
+      "If features.classical_formula_epoch changed, delete data/derived/cache/classical_v2 (and cache_meta.json).",
+      ".venv/bin/python -m src.train_unified --gpu --n-jobs -1",
+      ".venv/bin/python -m src.evaluate_unified",
+      "Compare reports/eval_v2_<date>.json to reported_metrics."
+    ],
+    "notes": "Classical features are deterministic; embedding drift and split assignment are seeded; embeddings are cached per id. cuML GPU SVC and sklearn produce the same saved model."
+  }
+}
