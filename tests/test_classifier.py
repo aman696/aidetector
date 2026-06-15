@@ -99,6 +99,40 @@ class TestFeatureExtractor:
 
 
 # =====================================================================
+# RIGID drift — format independence
+# =====================================================================
+
+class TestDriftFormatIndependence:
+    """drift_* must depend only on the decoded pixels and the seed, NOT on the
+    input file's container format. The noisy copy is now always re-encoded
+    losslessly as PNG, so a JPEG input no longer injects an extra recompression
+    cycle into |orig - noisy| (which would have leaked file format -> class)."""
+
+    def test_same_pixels_different_extension_same_drift(self, tmp_path):
+        import cv2
+        rng = np.random.default_rng(5)
+        px = rng.integers(0, 256, (192, 192, 3), dtype=np.uint8)
+
+        png_path = str(tmp_path / "a.png")
+        cv2.imwrite(png_path, px)
+        # A .jpg-NAMED file that actually holds the same lossless PNG bytes, so
+        # the decoded pixels (and the pixel-derived noise seed) are identical.
+        # OpenCV decodes by content, not extension. Under the old code the temp
+        # noisy copy would be JPEG-encoded for this input but PNG for the other,
+        # diverging the drift; under the fix both go through PNG -> identical.
+        jpg_named = str(tmp_path / "b.jpg")
+        shutil.copyfile(png_path, jpg_named)
+
+        fe = FeatureExtractor()
+        d_png = fe._compute_drift_features(png_path)
+        d_jpg = fe._compute_drift_features(jpg_named)
+        assert set(d_png) == set(d_jpg)
+        for k in d_png:
+            assert abs(d_png[k] - d_jpg[k]) < 1e-9, \
+                f"{k} format-dependent: {d_png[k]} vs {d_jpg[k]}"
+
+
+# =====================================================================
 # AIDetectorClassifier — voting fallback
 # =====================================================================
 

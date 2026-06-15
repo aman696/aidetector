@@ -183,35 +183,49 @@ class FeatureExtractor:
             noise = rng.normal(0, 2, img.shape)
             noisy = np.clip(img.astype(np.float64) + noise, 0, 255).astype(np.uint8)
 
-            # Save noisy version temporarily
-            suffix = os.path.splitext(image_path)[1] or '.jpg'
-            fd, tmp_path = tempfile.mkstemp(suffix=suffix)
-            os.close(fd)
-            _cv2.imwrite(tmp_path, noisy)
+            # Write BOTH the original pixels and the noisy pixels to LOSSLESS PNG
+            # temp files, and diff features from those (not from image_path).
+            # This removes a format/quality confound: previously only the noisy
+            # copy was re-encoded, in the input's own format (e.g. JPEG q95), so
+            # for JPEG inputs the "drift" conflated noise-sensitivity with an
+            # extra recompression cycle the original never underwent. Since file
+            # format correlates with class in the clean condition (real photos
+            # JPEG, several AI families PNG), that leaked format as a shortcut.
+            # Encoding both copies as PNG makes the ONLY difference between them
+            # the seeded noise, so any recompression effect cancels in |orig -
+            # noisy|. (The analyzers read paths, not arrays, so we round-trip
+            # through PNG rather than refactor all of them.)
+            fd_o, tmp_orig = tempfile.mkstemp(suffix='.png')
+            os.close(fd_o)
+            fd_n, tmp_noisy = tempfile.mkstemp(suffix='.png')
+            os.close(fd_n)
+            _cv2.imwrite(tmp_orig, img)
+            _cv2.imwrite(tmp_noisy, noisy)
 
             try:
-                orig_fft  = extract_fft_features(image_path)
-                noisy_fft = extract_fft_features(tmp_path)
+                orig_fft  = extract_fft_features(tmp_orig)
+                noisy_fft = extract_fft_features(tmp_noisy)
 
-                orig_noise  = extract_noise_features(image_path)
-                noisy_noise = extract_noise_features(tmp_path)
+                orig_noise  = extract_noise_features(tmp_orig)
+                noisy_noise = extract_noise_features(tmp_noisy)
 
-                orig_grad  = extract_gradient_features(image_path)
-                noisy_grad = extract_gradient_features(tmp_path)
+                orig_grad  = extract_gradient_features(tmp_orig)
+                noisy_grad = extract_gradient_features(tmp_noisy)
 
-                orig_dct  = extract_dct_features(image_path)
-                noisy_dct = extract_dct_features(tmp_path)
+                orig_dct  = extract_dct_features(tmp_orig)
+                noisy_dct = extract_dct_features(tmp_noisy)
 
-                orig_patch  = extract_patchcraft_features(image_path)
-                noisy_patch = extract_patchcraft_features(tmp_path)
+                orig_patch  = extract_patchcraft_features(tmp_orig)
+                noisy_patch = extract_patchcraft_features(tmp_noisy)
 
-                orig_eigen  = extract_eigen_features(image_path)
-                noisy_eigen = extract_eigen_features(tmp_path)
+                orig_eigen  = extract_eigen_features(tmp_orig)
+                noisy_eigen = extract_eigen_features(tmp_noisy)
             finally:
-                try:
-                    os.unlink(tmp_path)
-                except Exception:
-                    pass
+                for _tp in (tmp_orig, tmp_noisy):
+                    try:
+                        os.unlink(_tp)
+                    except Exception:
+                        pass
 
             def d(a, b, k): return abs(a.get(k, 0.0) - b.get(k, 0.0))
 
