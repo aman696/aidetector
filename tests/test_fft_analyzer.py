@@ -12,8 +12,10 @@ Tests cover:
 
 import pytest
 import numpy as np
+import cv2
 import os
 import sys
+import tempfile
 
 # Ensure project root is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -254,6 +256,82 @@ class TestComputeSpectralFalloff:
         spectrum = np.linspace(100, 1, 100)
         falloff = compute_spectral_falloff(spectrum)
         assert falloff < 1.0
+
+
+# =====================================================================
+# Standard diagnostic inputs: constant / checkerboard / noise / smooth
+# =====================================================================
+
+def _write_gray(img: np.ndarray) -> str:
+    fd, path = tempfile.mkstemp(suffix=".png")
+    os.close(fd)
+    cv2.imwrite(path, img)
+    return path
+
+
+def _checkerboard(block: int = 2, size: int = 256) -> np.ndarray:
+    idx = np.indices((size, size))
+    return (((idx[0] // block) + (idx[1] // block)) % 2 * 255).astype(np.uint8)
+
+
+def _smooth_ramp(size: int = 256) -> np.ndarray:
+    return np.tile(np.linspace(0, 255, size, dtype=np.uint8), (size, 1))
+
+
+class TestFftStandardInputs:
+    """Spectral-slope and high-frequency sanity on canonical inputs. The point is
+    that no input -- not even degenerate ones -- yields NaN/Inf or a nonsense
+    feature; and that the features move in the physically correct direction."""
+
+    def _feats(self, img):
+        p = _write_gray(img)
+        try:
+            return extract_fft_features(p)
+        finally:
+            os.remove(p)
+
+    def test_constant_image_is_finite_and_degenerate(self):
+        # A flat image has all energy at DC (skipped), so the radial features
+        # collapse to finite zeros -- never NaN.
+        f = self._feats(np.full((256, 256), 128, dtype=np.uint8))
+        assert all(np.isfinite(v) for v in f.values())
+        assert f["spectral_slope"] == 0.0
+        assert f["slope_r_squared"] == 0.0
+        assert f["high_freq_ratio"] == 0.0
+
+    def test_checkerboard_has_more_high_freq_than_smooth(self):
+        # A high-frequency texture must carry far more high-frequency energy than
+        # a smooth gradient (the whole point of high_freq_ratio).
+        ck = self._feats(_checkerboard(block=2))
+        smooth = self._feats(_smooth_ramp())
+        assert all(np.isfinite(v) for v in ck.values())
+        assert ck["high_freq_ratio"] > 100.0 * smooth["high_freq_ratio"]
+
+    def test_white_noise_has_flat_slope(self):
+        # White noise has a (near) flat power spectrum -> slope ~ 0 and a poor
+        # power-law fit; a smooth image has a steep negative slope. This is the
+        # spectral-slope sanity check.
+        rng = np.random.default_rng(0)
+        noise = self._feats(rng.integers(0, 256, (256, 256), dtype=np.uint8))
+        smooth = self._feats(_smooth_ramp())
+        assert all(np.isfinite(v) for v in noise.values())
+        assert abs(noise["spectral_slope"]) < 0.3          # flat
+        assert noise["slope_r_squared"] < 0.3              # not a power law
+        assert noise["spectral_slope"] > smooth["spectral_slope"] + 1.0  # less negative
+
+    def test_all_standard_inputs_finite(self):
+        rng = np.random.default_rng(1)
+        inputs = {
+            "constant": np.full((256, 256), 200, dtype=np.uint8),
+            "checkerboard": _checkerboard(block=4),
+            "noise": rng.integers(0, 256, (256, 256), dtype=np.uint8),
+            "smooth": _smooth_ramp(),
+        }
+        for name, img in inputs.items():
+            f = self._feats(img)
+            assert all(np.isfinite(v) for v in f.values()), f"{name} produced non-finite"
+            assert 0.0 <= f["high_freq_ratio"] <= 1.0
+            assert 0.0 <= f["slope_r_squared"] <= 1.0
 
 
 # =====================================================================
