@@ -223,6 +223,59 @@ class TestSpectralBandAnalysis:
 
 
 # =====================================================================
+# Standard diagnostic inputs: grayscale-as-RGB / constant / random
+# =====================================================================
+
+class TestEigenStandardInputs:
+    """The covariance ratios must stay finite on the inputs that would otherwise
+    blow up: a grayscale image stored as 3 identical channels gives a rank-1
+    covariance (lambda2 = lambda3 = 0) whose raw ratios are infinite -- the caps
+    must keep them finite, never inf/NaN."""
+
+    def _write(self, img):
+        import cv2
+        import tempfile
+        fd, p = tempfile.mkstemp(suffix=".png")
+        os.close(fd)
+        cv2.imwrite(p, img)
+        return p
+
+    def _feats(self, img):
+        p = self._write(img)
+        try:
+            return extract_eigen_features(p)
+        finally:
+            os.remove(p)
+
+    def test_grayscale_rgb_is_finite_and_capped(self):
+        # R == G == B with real variation -> rank-1 covariance -> infinite raw
+        # ratios; the caps must bound them and dominance -> ~1.
+        ramp = np.tile(np.linspace(0, 255, 128, dtype=np.uint8), (128, 1))
+        gray_rgb = np.stack([ramp, ramp, ramp], axis=-1)  # 3 identical channels
+        f = self._feats(gray_rgb)
+        assert all(np.isfinite(v) for v in f.values()), "rank-1 leaked inf/NaN"
+        assert f["eig_ratio_1_2"] == pytest.approx(1000.0)        # pairwise cap
+        assert f["eig_condition_number"] == pytest.approx(5000.0)  # condition cap
+        assert f["eig_dominance"] == pytest.approx(1.0, abs=1e-3)
+
+    def test_constant_image_is_finite(self):
+        # Zero covariance, zero spectrum: everything must resolve to finite
+        # neutral values via the guards, not 0/0 = NaN.
+        f = self._feats(np.full((128, 128, 3), 100, dtype=np.uint8))
+        assert all(np.isfinite(v) for v in f.values())
+
+    def test_random_image_well_behaved(self):
+        rng = np.random.default_rng(0)
+        f = self._feats(rng.integers(0, 256, (160, 160, 3), dtype=np.uint8))
+        assert all(np.isfinite(v) for v in f.values())
+        assert f["eig_ratio_1_2"] >= 1.0          # lambda1 >= lambda2
+        assert 0.0 <= f["eig_dominance"] <= 1.0
+        # bands partition the spectrum
+        assert (f["band_low_ratio"] + f["band_mid_ratio"]
+                + f["band_high_ratio"]) == pytest.approx(1.0, abs=1e-6)
+
+
+# =====================================================================
 # Error handling
 # =====================================================================
 
