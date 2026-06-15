@@ -192,19 +192,34 @@ class TestSpectralBandAnalysis:
         expected = {'band_low_ratio', 'band_mid_ratio', 'band_high_ratio', 'band_mid_high_ratio'}
         assert result.keys() == expected
 
-    def test_band_ratios_sum_close_to_one(self):
-        """Low + mid + high ratios should roughly sum to (close to but not exactly) 1."""
+    def test_band_ratios_partition_to_one(self):
+        """Low + mid + high must PARTITION the measured spectrum (sum == 1.0).
+
+        The total is now summed over the in-disk region only, so the three bands
+        exactly cover it. The prior bug summed over the full square, leaving the
+        diagonal corners in the denominator but no band, so the sum fell short of 1.
+        """
         img = np.random.randint(0, 255, (128, 128, 3), dtype=np.uint8)
         result = spectral_band_analysis(img)
         total = result['band_low_ratio'] + result['band_mid_ratio'] + result['band_high_ratio']
-        # May not be exactly 1 due to pixels outside max_radius, but should be close
-        assert 0.5 < total <= 1.0
+        assert abs(total - 1.0) < 1e-6
 
     def test_mid_high_ratio_consistency(self):
         img = np.random.randint(0, 255, (128, 128, 3), dtype=np.uint8)
         result = spectral_band_analysis(img)
         expected = result['band_mid_ratio'] + result['band_high_ratio']
         assert abs(result['band_mid_high_ratio'] - expected) < 1e-10
+
+    def test_high_band_uses_power_direction(self):
+        """A high-frequency-rich image must have a larger band_high_ratio than a
+        smooth low-frequency one (bands are power |F|^2, so this direction holds).
+        """
+        rng = np.random.default_rng(7)
+        noise = rng.integers(0, 255, (192, 192, 3), dtype=np.uint8)        # broadband
+        ramp = np.tile(np.linspace(0, 255, 192, dtype=np.uint8), (192, 1))  # smooth
+        ramp = np.stack([ramp] * 3, axis=-1)
+        assert (spectral_band_analysis(noise)['band_high_ratio']
+                > spectral_band_analysis(ramp)['band_high_ratio'])
 
 
 # =====================================================================

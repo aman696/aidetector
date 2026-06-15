@@ -156,31 +156,43 @@ def spectral_band_analysis(img_bgr: np.ndarray) -> Dict[str, float]:
     gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
     gray = crop_to_square(gray)
     
-    # 2D FFT
+    # 2D FFT -> power spectrum |F|^2 (energy). Using magnitude here would not be
+    # energy; "band energy ratio" must be built from power. See code_note 03.
     fft = np.fft.fft2(gray.astype(np.float64))
     fft_shifted = np.fft.fftshift(fft)
-    magnitude = np.abs(fft_shifted)
-    
-    h, w = magnitude.shape
+    power = np.abs(fft_shifted) ** 2
+
+    h, w = power.shape
     cy, cx = h // 2, w // 2
     max_radius = min(cy, cx)
-    
+
+    # Exclude the DC term (image brightness, not texture) so band_low is not just
+    # a brightness proxy; consistent with the FFT analyzer skipping r = 0.
+    power[cy, cx] = 0.0
+
     # Distance map from center
     y_coords, x_coords = np.ogrid[:h, :w]
     distances = np.sqrt((y_coords - cy) ** 2 + (x_coords - cx) ** 2)
-    
-    # Define three bands: low (0-33%), mid (33-66%), high (66-100%)
+
+    # Define three bands: low (0-33%), mid (33-66%), high (66-100%) of max_radius.
     r_low = max_radius * 0.33
     r_mid = max_radius * 0.66
-    
+
     low_mask = distances < r_low
     mid_mask = (distances >= r_low) & (distances < r_mid)
     high_mask = (distances >= r_mid) & (distances <= max_radius)
-    
-    total_energy = np.sum(magnitude) + 1e-10
-    low_energy = np.sum(magnitude[low_mask])
-    mid_energy = np.sum(magnitude[mid_mask])
-    high_energy = np.sum(magnitude[high_mask])
+
+    # Total energy is summed over the in-disk region (radius <= max_radius) ONLY,
+    # which is exactly low|mid|high. This makes the three bands PARTITION the
+    # measured spectrum so the ratios sum to 1.0. Summing over the full square
+    # (the prior bug) left the diagonal-corner energy beyond max_radius in the
+    # denominator but in no band, so band_high_ratio systematically undercounted
+    # the highest frequencies.
+    in_disk = distances <= max_radius
+    total_energy = np.sum(power[in_disk]) + 1e-10
+    low_energy = np.sum(power[low_mask])
+    mid_energy = np.sum(power[mid_mask])
+    high_energy = np.sum(power[high_mask])
     
     return {
         'band_low_ratio': float(low_energy / total_energy),
@@ -257,10 +269,13 @@ def eigenvalue_score(image_path: str) -> float:
     uniformity_score = np.clip(1.0 - (patch_std / 10.0), 0.0, 1.0)
     
     # Score 3: High-frequency energy deficit
-    # AI images have less high-frequency content
+    # AI images have less high-frequency content. band_high_ratio is now a POWER
+    # fraction (|F|^2), so its scale is ~0.01, not ~0.3. Reference = the real
+    # median band_high (measured 2026-06-14, n=40 real: ~0.0125); below it leans
+    # AI. See code_notes/03-eigen-analyzer.md.
+    _BAND_HIGH_REF = 0.0125
     hf_ratio = features['band_high_ratio']
-    # Low high-freq energy → more likely AI
-    hf_deficit_score = np.clip(1.0 - (hf_ratio / 0.3), 0.0, 1.0)
+    hf_deficit_score = np.clip(1.0 - (hf_ratio / _BAND_HIGH_REF), 0.0, 1.0)
     
     # Score 4: Eigenvalue condition number
     # Extreme condition numbers suggest synthetic color distribution
