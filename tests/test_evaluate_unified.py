@@ -26,6 +26,29 @@ class TestBinaryMetrics:
         assert m["auc"] is None and m["ap"] is None
         assert m["accuracy"] == pytest.approx(1.0)  # all predicted AI at 0.5
 
+    def test_precision_recall_f1_perfect(self):
+        y = np.array([0, 0, 1, 1])
+        s = np.array([0.1, 0.2, 0.8, 0.9])
+        m = ev.binary_metrics(y, s)
+        assert m["precision"] == pytest.approx(1.0)
+        assert m["recall"] == pytest.approx(1.0)
+        assert m["f1"] == pytest.approx(1.0)
+
+    def test_precision_recall_f1_known_confusion(self):
+        # preds@0.5: [1,1,0,1] vs truth [0,1,1,1] -> TP=2, FP=1, FN=1.
+        y = np.array([0, 1, 1, 1])
+        s = np.array([0.9, 0.7, 0.3, 0.6])
+        m = ev.binary_metrics(y, s)
+        assert m["precision"] == pytest.approx(2 / 3)   # TP/(TP+FP)
+        assert m["recall"] == pytest.approx(2 / 3)      # TP/(TP+FN)
+        assert m["f1"] == pytest.approx(2 / 3)
+
+    def test_metrics_guarded_when_no_positive_predictions(self):
+        y = np.array([0, 0, 1, 1])
+        s = np.array([0.1, 0.2, 0.3, 0.4])  # nothing >= 0.5 -> no positives
+        m = ev.binary_metrics(y, s)
+        assert m["precision"] == 0.0 and m["recall"] == 0.0 and m["f1"] == 0.0
+
 
 class TestPdAtFar:
     def test_perfect_detector(self):

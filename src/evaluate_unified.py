@@ -50,13 +50,23 @@ def binary_metrics(y_true: Sequence[int], scores: Sequence[float],
     y_true = np.asarray(y_true)
     scores = np.asarray(scores, dtype=float)
     preds = (scores >= threshold).astype(int)
+    # Threshold-based confusion counts (positive class = AI, label 1).
+    tp = int(((preds == 1) & (y_true == 1)).sum())
+    fp = int(((preds == 1) & (y_true == 0)).sum())
+    fn = int(((preds == 0) & (y_true == 1)).sum())
+    precision = tp / (tp + fp) if (tp + fp) else 0.0
+    recall = tp / (tp + fn) if (tp + fn) else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
     out = {
         "n": int(len(y_true)),
         "n_ai": int((y_true == 1).sum()),
         "n_real": int((y_true == 0).sum()),
         "accuracy": float((preds == y_true).mean()) if len(y_true) else None,
-        "auc": None,
-        "ap": None,
+        "precision": float(precision),
+        "recall": float(recall),
+        "f1": float(f1),
+        "auc": None,      # ROC-AUC; rank-based, both classes required
+        "ap": None,       # PR-AUC (average precision); both classes required
     }
     if len(np.unique(y_true)) == 2:
         out["auc"] = float(roc_auc_score(y_true, scores))
@@ -349,15 +359,17 @@ def render_markdown(results: dict) -> str:
     uni = results.get("unified_overall", {})
     cls = results.get("classical_overall", {})
     out.append("## Overall")
-    out.append("| model | n | AUC | acc | AP | Pd@5%FAR |")
-    out.append("|---|---|---|---|---|---|")
+    out.append("| model | n | AUC | PR-AUC | acc | prec | recall | F1 | Pd@5%FAR |")
+    out.append("|---|---|---|---|---|---|---|---|---|")
     out.append(f"| unified (855) | {uni.get('n','')} | {_fmt(uni.get('auc'))} "
-               f"| {_fmt(uni.get('accuracy'))} | {_fmt(uni.get('ap'))} "
-               f"| {_fmt(uni.get('pd_at_5far'))} |")
+               f"| {_fmt(uni.get('ap'))} | {_fmt(uni.get('accuracy'))} "
+               f"| {_fmt(uni.get('precision'))} | {_fmt(uni.get('recall'))} "
+               f"| {_fmt(uni.get('f1'))} | {_fmt(uni.get('pd_at_5far'))} |")
     if cls:
         out.append(f"| classical-only (85) | {cls.get('n','')} | {_fmt(cls.get('auc'))} "
-                   f"| {_fmt(cls.get('accuracy'))} | {_fmt(cls.get('ap'))} "
-                   f"| {_fmt(cls.get('pd_at_5far'))} |")
+                   f"| {_fmt(cls.get('ap'))} | {_fmt(cls.get('accuracy'))} "
+                   f"| {_fmt(cls.get('precision'))} | {_fmt(cls.get('recall'))} "
+                   f"| {_fmt(cls.get('f1'))} | {_fmt(cls.get('pd_at_5far'))} |")
     out.append("")
 
     out.append(_table("By condition", results.get("by_condition", {})))
