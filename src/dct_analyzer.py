@@ -108,10 +108,19 @@ def dct_coefficient_kurtosis(dct_blocks: np.ndarray) -> float:
 
 
 def dct_coefficient_variance(dct_blocks: np.ndarray) -> float:
-    """Variance of all AC coefficients."""
-    ac_coeffs = dct_blocks.copy()
-    ac_coeffs[:, 0, 0] = 0.0  # Zero out DC
-    return float(np.var(ac_coeffs))
+    """Variance of all AC coefficients (DC excluded, not zeroed).
+
+    Reshapes each block to 64 coefficients and drops index 0 (the DC term).
+    The prior version zeroed DC in place and took the variance over all 64
+    slots, so the one zeroed cell per block was still counted in N and in the
+    mean -- biasing the variance down by ~1/64 and shifting the mean. DC is now
+    dropped outright, matching dct_coefficient_kurtosis.
+    """
+    n = dct_blocks.shape[0]
+    if n == 0:
+        return 0.0
+    ac = dct_blocks.reshape(n, -1)[:, 1:]  # drop DC (index 0); keep 63 AC coeffs
+    return float(np.var(ac))
 
 
 def dct_block_dc_variance(dct_blocks: np.ndarray) -> float:
