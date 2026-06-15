@@ -12,9 +12,13 @@ Pipeline:
 1. Convert to grayscale
 2. Center-crop to square (avoid resizing to preserve spectrum)
 3. Apply 2D DFT, shift to center DC component
-4. Compute magnitude spectrum (log scale)
+4. Compute the power spectrum |F|^2 (linear, NOT log, NOT magnitude)
 5. Azimuthal average → 1D radial power spectrum
 6. Analyze spectral slope, high-frequency energy, and spectral features
+
+The single log that turns a 1/f^beta power law into a straight line is applied
+once, downstream in compute_spectral_slope. See code_notes/02-fft-analyzer.md
+for the prior magnitude/double-log bug and the corrected derivation.
 """
 
 import numpy as np
@@ -25,19 +29,21 @@ from src.utils import load_grayscale, crop_to_square, validate_image_path
 
 def azimuthal_average(spectrum_2d: np.ndarray) -> np.ndarray:
     """
-    Computes the azimuthally averaged 1D power spectrum from a 2D spectrum.
-    
-    This averages the magnitude spectrum over concentric rings centered at DC,
-    producing a 1D function of spatial frequency (radius from center).
-    
+    Computes the azimuthally averaged 1D radial profile from a 2D spectrum.
+
+    This averages the 2D spectrum over concentric rings centered at DC,
+    producing a 1D function of spatial frequency (radius from center). Callers
+    pass the linear power spectrum |F|^2 so the result is a radial power profile.
+
     This is the key operation from Durall 2020, Section III.
     Uses vectorized numpy (np.bincount) for performance on large images.
-    
+
     Args:
-        spectrum_2d: 2D magnitude spectrum (after fftshift, so DC is centered).
-        
+        spectrum_2d: 2D spectrum (after fftshift, so DC is centered). Linear,
+            not log; pass |F|^2 for a radial power spectrum.
+
     Returns:
-        1D array of averaged magnitudes at each radius (from 0 to max_radius).
+        1D array of ring-averaged values at each radius (from 0 to max_radius).
     """
     h, w = spectrum_2d.shape
     cy, cx = h // 2, w // 2
@@ -69,27 +75,34 @@ def azimuthal_average(spectrum_2d: np.ndarray) -> np.ndarray:
 
 def compute_power_spectrum(image_gray: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Computes the 2D magnitude spectrum and the azimuthally averaged 1D radial
+    Computes the 2D power spectrum |F|^2 and the azimuthally averaged 1D radial
     power spectrum of a grayscale image.
-    
+
+    The radial profile is the azimuthal average of the LINEAR power |F|^2
+    (Durall 2020, Section III). Downstream, compute_spectral_slope takes a single
+    log of this power, so a 1/f^beta image yields slope ~= -beta. The earlier
+    implementation averaged log-magnitude here and logged again in the slope fit
+    (a double log, and magnitude where power was intended), which made the slope
+    uninterpretable as a power-law exponent; see code_notes/02-fft-analyzer.md.
+
     Args:
         image_gray: Grayscale image as 2D numpy array.
-        
+
     Returns:
-        Tuple of (magnitude_spectrum_2d, radial_power_spectrum_1d)
+        Tuple of (power_spectrum_2d, radial_power_spectrum_1d)
     """
     # Apply 2D FFT
     fft = np.fft.fft2(image_gray.astype(np.float64))
     fft_shifted = np.fft.fftshift(fft)  # Center DC component
-    
-    # Compute magnitude spectrum (add 1 to avoid log(0))
-    magnitude = np.abs(fft_shifted)
-    magnitude_log = np.log1p(magnitude)
-    
-    # Compute azimuthally averaged 1D radial power spectrum
-    radial_spectrum = azimuthal_average(magnitude_log)
-    
-    return magnitude_log, radial_spectrum
+
+    # Power spectral density |F|^2 (linear; no log here, no magnitude). The one
+    # log that linearises a 1/f^beta law is applied once, in the slope fit.
+    power = np.abs(fft_shifted) ** 2
+
+    # Azimuthally averaged 1D radial power spectrum
+    radial_spectrum = azimuthal_average(power)
+
+    return power, radial_spectrum
 
 
 def compute_spectral_slope(radial_spectrum: np.ndarray) -> Tuple[float, float]:
@@ -233,47 +246,50 @@ def extract_fft_features(image_path: str) -> Dict[str, float]:
     }
 
 
+# Reference values for the standalone heuristic below, measured on the current
+# data (n = 40 real + 40 AI, 2026-06-14) AFTER the power-spectrum fix. These are
+# weak, overlapping signals: only two directions held up across resamples and
+# they are recorded as such in code_notes/02-fft-analyzer.md. The shipped
+# detector does NOT use this score; it feeds the raw features to the SVM. This
+# heuristic only powers the v1 voting fallback and the per-signal display.
+_SLOPE_NATURAL = -2.6      # median power-law exponent of natural images (beta ~ 2.6)
+_SLOPE_ANOM_TOL = 0.6      # |slope - natural| at which the anomaly term saturates
+_HF_RATIO_REF = 5.0e-6     # high-freq energy fraction below which an image looks high-freq-poor
+
+
 def fft_score(image_path: str) -> float:
     """
-    Computes a single FFT-based score for AI detection.
-    
-    Higher score = more likely AI-generated.
-    
-    The score is based on:
-    - Spectral slope deviation from natural image statistics (~-1)
-    - High-frequency energy ratio
-    - Spectral falloff sharpness
-    
+    Computes a single FFT-based score for AI detection (weak standalone heuristic).
+
+    Higher score = more likely AI-generated. Built from the two directions that
+    were stable across resamples on the current data:
+    - high-frequency energy fraction: real images keep MORE high-freq energy, so
+      a lower ratio leans AI (the Durall thesis);
+    - spectral-slope anomaly: AI images deviate MORE from the natural ~1/f^beta
+      power law (real beta clusters tightly near -2.6, AI spreads), so a larger
+      |slope - natural| leans AI.
+
+    Spectral falloff is intentionally not used: its direction flipped between
+    resamples (overlapping distributions), so it is not a reliable standalone
+    signal. See code_notes/02-fft-analyzer.md for the measured numbers.
+
     Args:
         image_path: Path to image file.
-        
+
     Returns:
         float: Score between 0.0 and 1.0 (higher = more likely AI).
     """
     features = extract_fft_features(image_path)
-    
-    # Natural images have spectral slope around -1 to -2.
-    # AI images tend to have steeper (more negative) slopes = weaker high-freq.
-    slope = features['spectral_slope']
-    
-    # Score based on slope deviation.
-    # Empirically measured on this dataset: all images cluster in -0.08 to -0.20.
-    # AI images tend toward more negative (steeper falloff) within this range.
-    # Map [-0.08, -0.22] → [0.0, 1.0]: more negative = higher AI score.
-    slope_score = np.clip((-slope - 0.08) / 0.14, 0.0, 1.0)
-    
-    # Score based on high-frequency energy ratio
-    # Real images have more high-freq energy than AI images
+
+    # High-frequency energy fraction: lower => weaker high-freq => more likely AI.
     hf_ratio = features['high_freq_ratio']
-    # Lower high-freq ratio = more likely AI
-    hf_score = np.clip(1.0 - (hf_ratio / 0.5), 0.0, 1.0)
-    
-    # Score based on spectral falloff
-    falloff = features['spectral_falloff']
-    # Lower falloff ratio = steeper drop = more likely AI
-    falloff_score = np.clip(1.0 - falloff, 0.0, 1.0)
-    
-    # Weighted combination
-    score = 0.4 * slope_score + 0.35 * hf_score + 0.25 * falloff_score
-    
+    hf_score = np.clip((_HF_RATIO_REF - hf_ratio) / _HF_RATIO_REF, 0.0, 1.0)
+
+    # Slope anomaly: distance from the natural power-law exponent, either side.
+    slope = features['spectral_slope']
+    slope_anomaly = np.clip(abs(slope - _SLOPE_NATURAL) / _SLOPE_ANOM_TOL, 0.0, 1.0)
+
+    # Weight the more direct high-freq signal higher than the anomaly term.
+    score = 0.6 * hf_score + 0.4 * slope_anomaly
+
     return float(np.clip(score, 0.0, 1.0))

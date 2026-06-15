@@ -125,6 +125,57 @@ class TestAzimuthalAverage:
 
 
 # =====================================================================
+# compute_power_spectrum — must be power |F|^2, not magnitude or log
+# =====================================================================
+
+class TestPowerSpectrumIsPower:
+    """compute_power_spectrum must return the power spectrum |F|^2.
+
+    Regression guard for the prior bug where the radial profile was the azimuthal
+    average of log-magnitude; combined with the log inside compute_spectral_slope
+    that was a DOUBLE log, making the slope uninterpretable as a 1/f^beta exponent
+    (it collapsed to ~ -0.1). See code_notes/02-fft-analyzer.md.
+    """
+
+    def test_power_scales_quadratically(self):
+        # |F[2x]|^2 = 4 |F[x]|^2. Magnitude would scale x2 and log1p(magnitude)
+        # would not scale cleanly, so the x4 ratio uniquely identifies power.
+        rng = np.random.default_rng(0)
+        img = rng.random((128, 128)) * 100.0
+        _, r1 = compute_power_spectrum(img)
+        _, r2 = compute_power_spectrum(img * 2.0)
+        ratio = r2.sum() / r1.sum()
+        assert abs(ratio - 4.0) < 0.05, f"power should scale x4, got x{ratio:.3f}"
+
+    def test_power_is_nonnegative(self):
+        rng = np.random.default_rng(1)
+        _, r = compute_power_spectrum(rng.random((96, 96)))
+        assert np.all(r >= 0.0)
+
+    def test_real_image_recovers_power_law_slope(self):
+        # Natural images follow ~1/f^beta; on true power the slope IS the exponent
+        # (about -2 to -3) with high R^2. The double-log bug gave slope ~ -0.1,
+        # which this range rejects.
+        if not os.path.exists(REAL_IMG):
+            pytest.skip("real sample image not present")
+        f = extract_fft_features(REAL_IMG)
+        assert -4.0 < f['spectral_slope'] < -1.0, \
+            f"slope {f['spectral_slope']} is not a power-law exponent (double-log regression?)"
+        assert f['slope_r_squared'] > 0.8
+
+    def test_high_freq_ratio_direction(self):
+        # Backs the fft_score direction claim: a broadband (high-freq-rich) image
+        # has a larger high-frequency energy fraction than a smooth (low-freq) one.
+        # fft_score maps lower hf_ratio -> higher AI score.
+        rng = np.random.default_rng(3)
+        noise = rng.random((256, 256)) * 255.0                 # broadband
+        ramp = np.tile(np.linspace(0, 255, 256), (256, 1))     # smooth, low-freq
+        _, r_noise = compute_power_spectrum(noise)
+        _, r_ramp = compute_power_spectrum(ramp)
+        assert compute_high_freq_ratio(r_noise) > compute_high_freq_ratio(r_ramp)
+
+
+# =====================================================================
 # compute_spectral_slope — linear fit
 # =====================================================================
 
