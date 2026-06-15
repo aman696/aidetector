@@ -111,8 +111,12 @@ def check_gates(results: dict) -> List[dict]:
     gates: List[dict] = []
 
     def add(name, target, value, ok):
+        # A gate whose measured value is undefined is "n/a", not a FAIL. ROC-AUC
+        # on the single-class all-AI holdout is None (mathematically undefined
+        # without both classes); passed=None renders as "n/a", not "FAIL".
+        passed = None if value is None else ok
         gates.append({"name": name, "target": target,
-                      "value": value, "passed": ok})
+                      "value": value, "passed": passed})
 
     cond = results.get("by_condition", {})
     uni = results.get("unified_overall", {})
@@ -185,14 +189,36 @@ def exif_permutation_check(pipeline, X: np.ndarray, y: np.ndarray,
 # --------------------------------------------------------------------------- #
 
 def _min_side_lookup() -> Dict[str, int]:
-    """base_id -> min(width, height) from the base manifest (for resolution
-    buckets; derived records carry base_id but not dimensions)."""
+    """base_id -> min(width, height) from the base manifest (fallback only; used
+    when a record's own image cannot be read)."""
     from src.dataset import load_manifest
     out = {}
     for rec in load_manifest():
         w, h = rec.get("width", 0), rec.get("height", 0)
         out[rec["id"]] = min(w, h) if w and h else 0
     return out
+
+
+def _record_min_side(rec: dict, base_lookup: Dict[str, int]) -> int:
+    """min(width, height) of THIS record's own image.
+
+    Derived variants (facebook/x/telegram/screenshot/chain) are resized, so the
+    base manifest's dimensions describe the wrong pixels for them. We read the
+    actual file's dimensions from its header (PIL does not decode the pixels for
+    `.size`), so the resolution bucket reflects what the model actually saw.
+    Falls back to the base image's min_side, then 0, if the file is unreadable.
+    """
+    path = rec.get("path")
+    if path and os.path.exists(path):
+        try:
+            from PIL import Image
+            with Image.open(path) as im:
+                w, h = im.size
+            if w and h:
+                return min(w, h)
+        except Exception:
+            pass
+    return base_lookup.get(rec.get("base_id", rec.get("id")), 0)
 
 
 def _indices_by(records: Sequence[dict], key) -> Dict[str, List[int]]:
@@ -262,7 +288,7 @@ def evaluate_unified(
         results["by_family"][fam] = rep
 
     min_side = _min_side_lookup()
-    bucket_of = lambda r: resolution_bucket(min_side.get(r.get("base_id", r["id"]), 0))
+    bucket_of = lambda r: resolution_bucket(_record_min_side(r, min_side))
     for bucket, idx in _indices_by(recs, bucket_of).items():
         idx = np.array(idx)
         results["by_resolution"][bucket] = group_report(

@@ -92,6 +92,29 @@ class TestGates:
         gates = {g["name"]: g for g in ev.check_gates(results)}
         assert gates["unified AUC >= classical-only AUC"]["passed"] is False
 
+    def test_undefined_metric_is_na_not_fail(self):
+        # The all-AI holdout has no AUC (single class); that gate must read n/a
+        # (passed is None), NOT FAIL. A defined sibling metric still evaluates.
+        results = {"holdout_overall": {"auc": None, "pd_at_5far": 0.7}}
+        gates = {g["name"]: g for g in ev.check_gates(results)}
+        assert gates["holdout AUC >= 0.85"]["passed"] is None
+        assert gates["holdout Pd@5%FAR >= 0.60"]["passed"] is True
+
+
+class TestRecordMinSide:
+    def test_uses_record_own_dimensions_not_base(self, tmp_path):
+        from PIL import Image
+        # The derived variant file is small; the base manifest says it's large.
+        # The bucket must reflect the variant's actual pixels.
+        variant = tmp_path / "variant.jpg"
+        Image.new("RGB", (300, 120)).save(variant)  # (w, h) -> min_side 120
+        rec = {"id": "b__facebook", "base_id": "b", "path": str(variant)}
+        assert ev._record_min_side(rec, {"b": 1024}) == 120
+
+    def test_falls_back_to_base_when_file_missing(self):
+        rec = {"id": "b__x", "base_id": "b", "path": "/nonexistent/x.jpg"}
+        assert ev._record_min_side(rec, {"b": 512}) == 512
+
 
 class TestRenderMarkdown:
     def test_produces_sections(self):
