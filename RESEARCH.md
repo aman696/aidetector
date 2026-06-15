@@ -37,9 +37,16 @@ As of today, the detector uses a **dual-model architecture**:
 
 ---
 
-## Generator Architecture vs Detectability (v2 family analysis, 2026-06-13)
+## Generator Architecture vs Detectability (v2 family analysis, 2026-06-15)
 
-Detailed artifact: `reports/family_analysis_20260613.{md,json}`; method and the
+> Numbers refreshed 2026-06-15 after the code-audit fixes (FFT power spectrum,
+> eigen bands, signed-Laplacian variance, DCT AC-only variance, in-memory RIGID
+> drift) and the group-aware-calibration retrain. The architecture story is
+> unchanged from the 2026-06-13 run; the digits moved by <=0.01 except where
+> noted (the freq-forensic probe shifted more, since those feature values
+> changed). Prior run: `reports/family_analysis_20260613.{md,json}`.
+
+Detailed artifact: `reports/family_analysis_20260615.{md,json}`; method and the
 architecture map: `code_notes/20-family-analysis.md`, `paper_notes/architectures.md`.
 Run: `python -m scripts.analyze_families`. This analysis re-scores the cached
 test/holdout matrices with the shipped v2 models and groups the 32 generator
@@ -54,42 +61,47 @@ images), clean condition:
 
 | bucket | mean AUC | mean Pd@5%FAR | note |
 |---|---|---|---|
-| U-Net diffusion (udiff) | 0.954 | 0.773 | 19 families |
-| pixel diffusion (GLIDE) | 0.964 | 0.769 | 1 family |
-| rectified-flow / DiT | 0.918 (seen 0.918) | 0.512 | flux holdout drags it |
-| autoregressive | 0.943 | 0.724 | Aurora/Gemini ~0.99, GPT 0.90 |
-| undisclosed | 0.923 | 0.661 | MJ7/recraft_v3 holdout |
+| U-Net diffusion (udiff) | 0.951 | 0.753 | 19 families |
+| pixel diffusion (GLIDE) | 0.985 | 0.923 | 1 family |
+| rectified-flow / DiT | 0.894 (seen 0.910) | 0.487 | flux holdout drags it |
+| autoregressive | 0.940 | 0.693 | Aurora/Gemini ~0.99, GPT ~0.90 |
+| undisclosed | 0.922 (seen 0.935) | 0.651 | MJ7/recraft_v3 holdout |
 
 Key corrections to the earlier "diffusion is cleared, other architectures are
 blind spots" framing:
 
 1. **The dramatic weakness was a threshold/confidence artifact, not blindness.**
-   Flux's headline accuracy was 0.522 (≈ chance) at the 0.5 threshold, but its
-   *ranking* AUC is 0.820 — it ranks Flux images above reals far better than
-   chance; it just assigns them low confidence (mean p(AI) 0.57, right at the
-   boundary). Across flow models mean p(AI) clusters 0.75–0.79 and AR-GPT 0.74,
-   so they fall just under the 0.5-calibrated threshold → low Pd@5%FAR (flow
-   0.51 vs udiff 0.77) despite AUC ~0.90.
+   Flux's headline accuracy was 0.540 (≈ chance) at the 0.5 threshold, but its
+   *ranking* AUC is 0.811 — it ranks Flux images above reals far better than
+   chance; it just assigns them low confidence (mean p(AI) 0.55, right at the
+   boundary). Across flow models mean p(AI) spreads 0.55–0.87 and AR-GPT 0.69,
+   so the weaker ones fall just under the 0.5-calibrated threshold → low
+   Pd@5%FAR (flow 0.49 vs udiff 0.75) despite AUC ~0.89.
 
 2. **The DINOv2 embedding is part of the cause — it carries a diffusion bias.**
    Per-family embedding gain (hybrid AUC − classical-only AUC) is *negative*
-   exactly on the flow/AR/holdout families: flux −0.072, gpt −0.049, chroma
-   −0.043, hidream −0.032, SD3 −0.031 — while strongly positive on classic
-   diffusion: GLIDE +0.308, DALL·E 2 +0.251, SD 1.3 +0.084. The embedding
-   encodes diffusion-era cues that pull novel-architecture scores toward the
-   boundary. The classical frequency forensics generalize better: a group-aware
-   linear probe on the freq-forensic features alone gets flow AUC 0.850 vs udiff
-   0.882 (small gap), where the embedding-only probe gets flow 0.802.
+   on the flow and the novel/held-out families: flux −0.031, chroma −0.033,
+   SD3 −0.030, recraft_v3 −0.058, gpt −0.062 — while strongly positive on
+   classic diffusion: DALL·E 2 +0.311, grok +0.114, SD 1.5 +0.109, SD 1.3
+   +0.104, GLIDE +0.080. The embedding encodes diffusion-era cues that pull
+   novel-architecture scores toward the boundary. The classical frequency
+   forensics generalize better: a group-aware linear probe on the freq-forensic
+   features alone gets flow AUC 0.754 vs udiff 0.831, where the embedding-only
+   probe gets flow 0.802. (Note: the freq-forensic AUCs dropped from the
+   2026-06-13 run — flow 0.850→0.754, udiff 0.882→0.831 — because the FFT and
+   eigen feature *values* changed in the audit fix; the udiff>flow ordering
+   held.)
 
 3. **Architecture matters modestly; exposure matters too; the worst case is
-   both.** Even *seen* flow models (SD3 0.905, chroma 0.882, hidream 0.913) rank
-   ~0.04 AUC below seen diffusion. Held-out *diffusion* families generalize well
-   (ideogram_3.0 0.952, imagen_4.0 0.932) while held-out flux (flow) is 0.820 —
-   held-out-diffusion minus held-out-non-diffusion AUC = +0.082. Flux is both a
-   novel architecture and unseen, which is why it is the single weakest family.
+   both.** Even *seen* flow models (SD3 0.907, chroma 0.878, hidream 0.883) rank
+   ~0.04 AUC below seen diffusion (seen-flow mean 0.910 vs seen-udiff 0.953).
+   Held-out *diffusion* families generalize well (ideogram_3.0 0.946, imagen_4.0
+   0.925) while held-out flux (flow) is 0.811 — held-out-diffusion minus
+   held-out-non-diffusion AUC = +0.086. Flux is both a novel architecture and
+   unseen, which is why it is the single weakest family.
 
-4. **Autoregressive is not a ranking blind spot.** Aurora 0.990 and Gemini 0.987
-   (both AR) are among the most detectable; GPT (0.896, mean p 0.74) is the
+4. **Autoregressive is not a ranking blind spot.** Aurora 0.990 and Gemini 0.985
+   (both AR) are among the most detectable; GPT (0.899, mean p 0.69) is the
    weakest AR family but still ranks well — its low accuracy is a confidence +
    small-sample effect (only 62 GPT base images), not architectural invisibility.
 
@@ -100,18 +112,22 @@ blind spots" framing:
   without retraining. Supported by finding 1.
 - *Training-data composition (medium effort, principled fix):* add rectified-flow
   (Flux, SD3, more chroma/hidream) and AR (more GPT — currently thin) images so
-  the embedding's diffusion bias is corrected; held-out flux at 0.820 marks the
+  the embedding's diffusion bias is corrected; held-out flux at 0.811 marks the
   true unseen-flow generalization gap. Supported by findings 2–3.
-- *Flow-specific features (low priority):* classical freq-forensics already reach
-  ~0.85 on flow, so bespoke flow artifact features are a smaller lever than the
-  two above. Supported by finding 2 (probe).
+- *Flow-specific features (now a bigger lever):* classical freq-forensics reach
+  only ~0.75 on flow after the audit fix (was ~0.85), so the freq features lost
+  some flow signal; bespoke flow artifact features are a larger lever than the
+  pre-fix numbers suggested. Supported by finding 2 (probe).
 
 ---
 
-## Autoregressive (AR) detection: does it generalize? (2026-06-13)
+## Autoregressive (AR) detection: does it generalize? (2026-06-15)
 
-Artifacts: `reports/ar_experiments_20260613.{md,json}`,
-`reports/ar_artifact_probe_20260613.md`; method/literature:
+> Refreshed 2026-06-15 on the post-audit-fix retrain (prior run 2026-06-13). The
+> generalization and artifact conclusions are unchanged; numbers updated below.
+
+Artifacts: `reports/ar_experiments_20260615.{md,json}`,
+`reports/ar_artifact_probe_20260615.md`; method/literature:
 `code_notes/21-ar-artifacts.md`, `paper_notes/ar-detection.md`,
 `paper_notes/architectures.md`. Run: `python -m scripts.ar_experiments`,
 `python -m scripts.ar_artifact_probe`.
@@ -122,8 +138,10 @@ Two questions: (1) what artifact makes AR detectable, and (2) does detection
 transfer to *unseen* AR?
 
 **What artifact (W2).** Not an AR-specific signature. Image-level probes found
-token-grid periodicity **weak/per-model only** (faint in Aurora, absent in
-GPT/Gemini) and raster-scan anisotropy **null** (AR 0.134 vs real 0.130). The
+token-grid periodicity **weak/per-model only** (faint in GPT/gpt_image_1,
+near-zero or negative in Aurora/Gemini, and actually highest in a *diffusion*
+family, ideogram_3.0 +0.0047) and raster-scan anisotropy **null** (AR 0.134 vs
+real 0.130). The
 operative cue is the **decoder upsampling / super-resolution residue** that
 VQ-AR and hybrid-AR (GPT-4o = AR backbone + diffusion head, per GPT-ImgEval,
 where NPR scores 99%) share with latent-diffusion VAE decoders. So the real axis
@@ -131,9 +149,9 @@ is **"has a learned upsampling decoder vs not"**, not "diffusion vs AR".
 
 **Does it generalize (W4 E2).** Yes. A linear probe trained on the leak-safe
 train split with **all AR families removed** still scores **real-anchored AUC
-0.905** on the held-out AR families (vs 0.937 with AR seen — generalization gap
-only **0.033**). Flow generalizes similarly (0.839 unseen, gap 0.040); removing
-diffusion hurts most (udiff gap 0.084), consistent with diffusion supplying the
+0.892** on the held-out AR families (vs 0.928 with AR seen — generalization gap
+only **0.036**). Flow generalizes similarly (0.823 unseen, gap 0.036); removing
+diffusion hurts most (udiff gap 0.087), consistent with diffusion supplying the
 bulk of the shared-fingerprint signal. **Implication: we do not need new AR data
 to claim AR generalization** — the detector catches autoregressive images it
 never trained on, because the upsampling-decoder fingerprint transfers from
@@ -141,27 +159,29 @@ diffusion/flow. The one untested case is **continuous-token AR** (NextStep/MAR,
 no VQ grid) — the predicted genuine blind spot, absent from every dataset family.
 
 **Calibration (W4 E3).** At the shipped 0.5 threshold, detection per architecture
-bucket is moderate-good (ar Pd 0.90, flow 0.77, udiff 0.91). The 5%-FAR threshold
-sits high (0.916) because the openfake reals score high, so the binding
-constraint is **real false positives**, not the AI-side threshold — recalibration
-alone will not lift flow; reducing real FPs would.
+bucket is moderate-good (ar Pd 0.88, flow 0.73, udiff 0.90). The 5%-FAR threshold
+is 0.759 (down from 0.916 pre-fix — the retrained model's real scores are lower),
+but it still sits well above the flow mass (mean p(AI) ~0.69), so the binding
+constraint remains **real false positives**, not the AI-side threshold —
+recalibration alone will not lift flow (Pd 0.52 at 5%FAR); reducing real FPs would.
 
 **External out-of-distribution check (W4 E1).** Scored the shipped model on an
 independent OpenFake subset (gpt-image-1, sd-3.5, flux.2, + laion/pexels reals —
-collection never in our pipeline; `reports/ar_external_eval_20260613.md`).
-Real-anchored AUC: ar (gpt-image-1, n=7) **0.788**, flow (sd-3.5 + flux.2, n=60)
-**0.619** (flux.2-dev 0.593 ~ chance), reals mean p(AI) 0.433. **Caveat:** this
-run downscaled images to 512px for speed, which smears the native-resolution
-upsampling traces the detector relies on, so these are a *lower bound* (a full-res
-run would likely score higher) — flagged honestly, not a clean number. Even so:
-AR holds up OOD (supports the generalization thesis), while flow — including our
-*seen* architecture SD3 on an independent collection (0.625) and the newer flux.2
+collection never in our pipeline; `reports/ar_external_eval_20260615.md`).
+Real-anchored AUC: ar (gpt-image-1, n=7) **0.777**, flow (sd-3.5 + flux.2, n=60)
+**0.627** (flux.2-dev 0.564 ~ chance), reals mean p(AI) 0.468. This is now a
+**full-resolution** run: the earlier 2026-06-13 run downscaled to 512px and was
+flagged as a possible lower bound, but the full-res numbers are essentially
+identical (ar 0.788→0.777, flow 0.619→0.627), so that caveat is resolved —
+native-resolution upsampling traces were not the limiting factor. AR holds up
+OOD (supports the generalization thesis), while flow — including our *seen*
+architecture SD3 on an independent collection (0.640) and the newer flux.2
 (~chance) — is the confirmed blind spot. Reals are not over-flagged.
 
 **Draft contribution statement (for a writeup).** *Architecture-stratified
 detectability of AI-generated images: a black-box forensic + DINOv2 detector
 generalizes across the diffusion family and to unseen autoregressive generators
-(leave-AR-out AUC 0.905) because latent-diffusion, VQ-autoregressive, and hybrid
+(leave-AR-out AUC 0.892) because latent-diffusion, VQ-autoregressive, and hybrid
 models share a decoder upsampling fingerprint; the residual blind spots are
 rectified-flow models with cleaner VAEs and continuous-token AR. Unlike PRADA
 (white-box token-probability ratios), this needs no model access.* Open work:
