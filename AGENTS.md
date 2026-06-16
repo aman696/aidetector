@@ -9,20 +9,21 @@ research) is linked from here.
 
 ## 1. What this repo is
 
-A research-grade AI-image detector. It is a research implementation / portfolio project, not a
-production service.
+An AI-image detector. It is a personal / portfolio project, not a forensic or moderation service;
+its output is an advisory estimate, not proof.
 
-- **v1 (shipped):** classical signal processing (FFT, eigenvalues, DCT, noise residuals,
-  gradients, texture) feeding an SVM — no deep learning, every decision explainable.
-- **v2 (in progress):** one unified detector that adds frozen **DINOv2** embeddings + RIGID
-  noise-drift on top of the 85 classical features (855-dim hybrid), trained to also hold up on
-  social-media-compressed, screenshotted, and chained images. Live build state: `V2_PROGRESS.md`
-  (local only). So "no deep learning" describes v1 only — v2 deliberately adds one frozen
-  backbone while keeping a classical-only fallback for torch-less environments.
+The shipped model is a single **unified detector**: 85 classical forensic features (FFT,
+eigenvalues, DCT, noise residuals, gradients, texture, NPR, screenshot forensics) plus a frozen
+**DINOv2** embedding and RIGID noise-drift, an 855-dim hybrid feeding a calibrated SVM, trained to
+hold up on clean, social-media-compressed, screenshotted, and chained images. A classical-only
+85-feature model is the automatic fallback when PyTorch is unavailable. (The earlier v1 was
+classical-only with a separate screenshot SVM; those `.pkl` files remain in `models/` as a
+reference baseline but are not used.)
 
-- Full architecture, commands, training pipelines → **[WORKFLOW.md](WORKFLOW.md)**
-- Literature review, known failure modes, roadmap → **[RESEARCH.md](RESEARCH.md)**
-- Active cleanup/experiment plan → **[CLEANUP_AND_RESEARCH_PLAN.md](CLEANUP_AND_RESEARCH_PLAN.md)**
+- Full architecture, commands, training/eval pipeline → **[WORKFLOW.md](WORKFLOW.md)**
+- Intended use, metrics, limitations, known weaknesses → **[MODEL_CARD.md](MODEL_CARD.md)**
+- Literature review, known failure modes, analysis → **[RESEARCH.md](RESEARCH.md)**
+- Reproducibility record (hashes, seeds, hyperparameters) → **[experiment_v1.json](experiment_v1.json)**
 - Plain-language explanations of every paper used → `paper_notes/` (**local only, gitignored** —
   if you cloned this from GitHub you will not have it; ask the owner)
 
@@ -84,6 +85,8 @@ write a note in `paper_notes/` — do not add citations to public docs.
 | You want to… | Read |
 |---|---|
 | Run or train the detector | [WORKFLOW.md](WORKFLOW.md) |
+| Know what the model is for and its limits | [MODEL_CARD.md](MODEL_CARD.md) |
 | Understand why a paper/method is here | `paper_notes/INDEX.md` (local only) |
-| Know what is broken or planned | [RESEARCH.md](RESEARCH.md) + [CLEANUP_AND_RESEARCH_PLAN.md](CLEANUP_AND_RESEARCH_PLAN.md) |
+| Know what is broken or planned | [RESEARCH.md](RESEARCH.md) |
+| Reproduce a reported number | [experiment_v1.json](experiment_v1.json) |
 | Add a feature/analyzer | §2–§3 above, then WORKFLOW.md architecture section |
