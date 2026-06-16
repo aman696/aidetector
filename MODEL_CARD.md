@@ -7,11 +7,6 @@ numbers are hand-entered. Regenerate the source numbers with
 `python -m src.evaluate_unified` and refresh the record with
 `python -m scripts.record_experiment`.
 
-> NOTE TO OWNER: the "Intended Use" and "Out of Scope" sections below are
-> outward-facing claims about what this model is for. They are drafted from the
-> existing README/SECURITY framing — review and edit them before this card is
-> merged to master or published.
-
 ## Model Details
 
 - **Name / version:** unified v2 (`models/unified_v2.pkl`), with an 85-feature
@@ -113,6 +108,20 @@ Evaluation is stratified along the factors that move performance:
 
 The hybrid is well-balanced (precision ≈ recall). The classical-only fallback is
 weaker and over-flags toward AI; the embedding closes most of that gap.
+
+**Acceptance gates — three are currently unmet.** The project defines absolute
+target gates (in `src/evaluate_unified.py`). The model meets the social-media,
+chain, and screenshot gates, but as of the 2026-06-15 run it does **not** meet:
+clean AUC (0.947 vs 0.95 target), clean accuracy (0.867 vs 0.90), and held-out
+generator Pd@5%FAR (0.513 vs 0.60). The clean misses are narrow; the held-out
+Pd shortfall reflects the rectified-flow / unseen-architecture weakness below.
+Full gate table and reasoning: [RESEARCH.md](RESEARCH.md) and
+`reports/eval_v2_<date>.md`. These are reported, not worked around.
+
+A note on precision: the 6,414 test rows derive from ~802 base images (each in
+up to eight conditions), so the rows are correlated and the effective sample is
+nearer 802. Point metrics should be read with that in mind; base-image-level
+confidence intervals are not yet computed.
 
 **By distribution condition (unified ROC-AUC):** clean 0.947, screenshot 0.946,
 X 0.945, Telegram 0.939, Facebook 0.930, chain (ss→tg) 0.935, chain (fb→x) 0.930.
