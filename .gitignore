@@ -12,7 +12,14 @@ htmlcov/
 scripts/
 # Runtime output
 logs/
-reports/
+# Reports stay local by default, but track the two lightweight, public
+# reproducibility reports the docs reference (no secrets/paths; <=55 KB).
+# (Use reports/* not reports/ so the negations below can re-include files.)
+reports/*
+!reports/eval_v2_*.md
+!reports/eval_v2_*.json
+!reports/family_analysis_*.md
+!reports/family_analysis_*.json
 data/
 
 papers/

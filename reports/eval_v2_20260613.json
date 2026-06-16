@@ -1,0 +1,534 @@
+{
+  "unified_overall": {
+    "n": 6414,
+    "n_ai": 3216,
+    "n_real": 3198,
+    "accuracy": 0.8687246647957593,
+    "auc": 0.9442350085096718,
+    "ap": 0.9441885226675305,
+    "pd_at_5far": 0.7229477611940298
+  },
+  "holdout_overall": {
+    "n": 2520,
+    "n_ai": 2520,
+    "n_real": 0,
+    "accuracy": 0.7615079365079365,
+    "auc": null,
+    "ap": null,
+    "pd_at_5far": 0.5396825396825397
+  },
+  "by_condition": {
+    "clean": {
+      "n": 802,
+      "n_ai": 402,
+      "n_real": 400,
+      "accuracy": 0.871571072319202,
+      "auc": 0.9489179104477612,
+      "ap": 0.9477339196091163,
+      "pd_at_5far": 0.7412935323383084
+    },
+    "facebook": {
+      "n": 802,
+      "n_ai": 402,
+      "n_real": 400,
+      "accuracy": 0.8690773067331671,
+      "auc": 0.9338121890547262,
+      "ap": 0.9324712710893339,
+      "pd_at_5far": 0.6666666666666666
+    },
+    "telegram": {
+      "n": 802,
+      "n_ai": 402,
+      "n_real": 400,
+      "accuracy": 0.8703241895261845,
+      "auc": 0.9443283582089552,
+      "ap": 0.9438004255973285,
+      "pd_at_5far": 0.7263681592039801
+    },
+    "x": {
+      "n": 802,
+      "n_ai": 402,
+      "n_real": 400,
+      "accuracy": 0.8690773067331671,
+      "auc": 0.947686567164179,
+      "ap": 0.9473499026506035,
+      "pd_at_5far": 0.7711442786069652
+    },
+    "chain_fb_x": {
+      "n": 802,
+      "n_ai": 402,
+      "n_real": 400,
+      "accuracy": 0.8603491271820449,
+      "auc": 0.933886815920398,
+      "ap": 0.9328983330249037,
+      "pd_at_5far": 0.6840796019900498
+    },
+    "chain_ss_tg": {
+      "n": 802,
+      "n_ai": 402,
+      "n_real": 400,
+      "accuracy": 0.8566084788029925,
+      "auc": 0.9422636815920398,
+      "ap": 0.9448443544048726,
+      "pd_at_5far": 0.7338308457711443
+    },
+    "screenshot": {
+      "n": 1602,
+      "n_ai": 804,
+      "n_real": 798,
+      "accuracy": 0.8764044943820225,
+      "auc": 0.9513039439394506,
+      "ap": 0.9520044141508024,
+      "pd_at_5far": 0.7300995024875622
+    }
+  },
+  "by_family": {
+    "coco": {
+      "n": 1598,
+      "n_ai": 0,
+      "n_real": 1598,
+      "accuracy": 0.9055068836045056,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": null
+    },
+    "openfake": {
+      "n": 1600,
+      "n_ai": 0,
+      "n_real": 1600,
+      "accuracy": 0.8075,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": null
+    },
+    "gemini": {
+      "n": 336,
+      "n_ai": 336,
+      "n_real": 0,
+      "accuracy": 0.9642857142857143,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.8452380952380952
+    },
+    "gpt": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.7019230769230769,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.4326923076923077
+    },
+    "aurora_20_1_25": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.9903846153846154,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.9615384615384616
+    },
+    "chroma": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.7115384615384616,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.40384615384615385
+    },
+    "dalle_2": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.9038461538461539,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.6826923076923077
+    },
+    "dalle_3": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.9519230769230769,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.875
+    },
+    "firefly": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.9326923076923077,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.9038461538461539
+    },
+    "frames_23_1_25": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.9519230769230769,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.75
+    },
+    "glide": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.9423076923076923,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.7211538461538461
+    },
+    "gpt_image_1": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.8461538461538461,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.47115384615384615
+    },
+    "grok_2_image_1212": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.875,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.6538461538461539
+    },
+    "halfmoon_4_4_25": {
+      "n": 72,
+      "n_ai": 72,
+      "n_real": 0,
+      "accuracy": 0.8055555555555556,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.4722222222222222
+    },
+    "hidream_i1_full": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.7211538461538461,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.33653846153846156
+    },
+    "ideogram_2.0": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.9038461538461539,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.8653846153846154
+    },
+    "imagen_3.0_002": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.8846153846153846,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.75
+    },
+    "lumina_17_2_25": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.8846153846153846,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.8461538461538461
+    },
+    "midjourney_6": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.8365384615384616,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.5576923076923077
+    },
+    "midjourney_v5": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 1.0,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.9423076923076923
+    },
+    "mystic": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.7596153846153846,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.5673076923076923
+    },
+    "recraft_v2": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.9423076923076923,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.7403846153846154
+    },
+    "sd_1.5": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.8942307692307693,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.7403846153846154
+    },
+    "sd_1.5_dreamshaper": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.9807692307692307,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.8461538461538461
+    },
+    "sd_1.5_epicdream": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.8173076923076923,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.46153846153846156
+    },
+    "sd_2.1": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.7692307692307693,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.5480769230769231
+    },
+    "stable_diffusion_1_3": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.9134615384615384,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.8365384615384616
+    },
+    "stable_diffusion_1_4": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.9038461538461539,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.7884615384615384
+    },
+    "stable_diffusion_2": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.9903846153846154,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.9615384615384616
+    },
+    "stable_diffusion_3": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.75,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.40384615384615385
+    },
+    "stable_diffusion_xl": {
+      "n": 104,
+      "n_ai": 104,
+      "n_real": 0,
+      "accuracy": 0.8076923076923077,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.5576923076923077
+    },
+    "flux_1": {
+      "n": 504,
+      "n_ai": 504,
+      "n_real": 0,
+      "accuracy": 0.5218253968253969,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.30158730158730157,
+      "holdout": true
+    },
+    "ideogram_3.0": {
+      "n": 504,
+      "n_ai": 504,
+      "n_real": 0,
+      "accuracy": 0.8531746031746031,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.6309523809523809,
+      "holdout": true
+    },
+    "imagen_4.0": {
+      "n": 504,
+      "n_ai": 504,
+      "n_real": 0,
+      "accuracy": 0.8392857142857143,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.5257936507936508,
+      "holdout": true
+    },
+    "midjourney_7": {
+      "n": 504,
+      "n_ai": 504,
+      "n_real": 0,
+      "accuracy": 0.8392857142857143,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.6924603174603174,
+      "holdout": true
+    },
+    "recraft_v3": {
+      "n": 504,
+      "n_ai": 504,
+      "n_real": 0,
+      "accuracy": 0.753968253968254,
+      "auc": null,
+      "ap": null,
+      "pd_at_5far": 0.5476190476190477,
+      "holdout": true
+    }
+  },
+  "by_resolution": {
+    "400-800": {
+      "n": 3238,
+      "n_ai": 1192,
+      "n_real": 2046,
+      "accuracy": 0.8455836936380482,
+      "auc": 0.9261712163855483,
+      "ap": 0.8873778457560398,
+      "pd_at_5far": 0.7013422818791947
+    },
+    "<400": {
+      "n": 1136,
+      "n_ai": 144,
+      "n_real": 992,
+      "accuracy": 0.9339788732394366,
+      "auc": 0.9842629928315413,
+      "ap": 0.9211156037064717,
+      "pd_at_5far": 0.8958333333333334
+    },
+    ">800": {
+      "n": 2040,
+      "n_ai": 1880,
+      "n_real": 160,
+      "accuracy": 0.8691176470588236,
+      "auc": 0.8756549202127659,
+      "ap": 0.9879891336368258,
+      "pd_at_5far": 0.5914893617021276
+    }
+  },
+  "classical_overall": {
+    "n": 6414,
+    "n_ai": 3216,
+    "n_real": 3198,
+    "accuracy": 0.8027751792952915,
+    "auc": 0.8884602939025946,
+    "ap": 0.8873517476730873,
+    "pd_at_5far": 0.5211442786069652
+  },
+  "exif_permutation": {
+    "auc_base": 0.9442350085096718,
+    "auc_metadata_permuted": 0.9441937824946561,
+    "auc_drop": 4.12260150156607e-05,
+    "n_metadata_features": 6
+  },
+  "gates": [
+    {
+      "name": "clean AUC >= 0.95",
+      "target": 0.95,
+      "value": 0.9489179104477612,
+      "passed": false
+    },
+    {
+      "name": "clean accuracy >= 0.90",
+      "target": 0.9,
+      "value": 0.871571072319202,
+      "passed": false
+    },
+    {
+      "name": "screenshot accuracy >= 0.85",
+      "target": 0.85,
+      "value": 0.8764044943820225,
+      "passed": true
+    },
+    {
+      "name": "holdout AUC >= 0.85",
+      "target": 0.85,
+      "value": null,
+      "passed": false
+    },
+    {
+      "name": "holdout Pd@5%FAR >= 0.60",
+      "target": 0.6,
+      "value": 0.5396825396825397,
+      "passed": false
+    },
+    {
+      "name": "facebook AUC >= 0.88",
+      "target": 0.88,
+      "value": 0.9338121890547262,
+      "passed": true
+    },
+    {
+      "name": "x AUC >= 0.88",
+      "target": 0.88,
+      "value": 0.947686567164179,
+      "passed": true
+    },
+    {
+      "name": "telegram AUC >= 0.88",
+      "target": 0.88,
+      "value": 0.9443283582089552,
+      "passed": true
+    },
+    {
+      "name": "chain_fb_x accuracy >= 0.75",
+      "target": 0.75,
+      "value": 0.8603491271820449,
+      "passed": true
+    },
+    {
+      "name": "chain_ss_tg accuracy >= 0.75",
+      "target": 0.75,
+      "value": 0.8566084788029925,
+      "passed": true
+    },
+    {
+      "name": "unified AUC >= classical-only AUC",
+      "target": 0.8884602939025946,
+      "value": 0.9442350085096718,
+      "passed": true
+    }
+  ],
+  "meta": {
+    "evaluated_at": "2026-06-13T18:04:01",
+    "n_test": 6414,
+    "n_holdout": 2520,
+    "unified_features": 855
+  }
+}
