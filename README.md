@@ -71,11 +71,12 @@ and resolution are in [RESEARCH.md](RESEARCH.md) and [MODEL_CARD.md](MODEL_CARD.
 | Unified (855) | 0.864 | 0.864 | 0.866 | 0.865 | 0.940 | 0.940 | 0.715 |
 | Classical-only (85) | 0.781 | 0.745 | 0.857 | 0.797 | 0.863 | 0.856 | 0.436 |
 
-These numbers are reproducible **by the project owner** from the record in
+These numbers are reproducible from the record in
 [experiment_v1.json](experiment_v1.json) (dataset hash, seeds, hyperparameters,
-feature version). The dataset itself is not yet publicly released, so independent
-third-party reproduction is not currently possible; see [DATASET.md](DATASET.md)
-for what the data is and how to request it. **Pd@5%FAR** — detection rate at the
+feature version). The full dataset is public on Hugging Face
+([aman213/aidetector-data](https://huggingface.co/datasets/aman213/aidetector-data)),
+so the results can be reproduced independently; see [DATASET.md](DATASET.md) for
+the data card and access. **Pd@5%FAR** — detection rate at the
 threshold where only 5% of real images are false-flagged — is the most
 decision-relevant number for a public tool, where real-image false positives are
 the binding constraint.
@@ -114,7 +115,8 @@ pip install cupy-cuda12x cuml-cu12 --extra-index-url=https://pypi.nvidia.com
 ## Training and Evaluation
 
 Training the unified model requires the dataset and derived variants under
-`data/` (not in the repo — available from the owner on request).
+`data/` (not in the repo — public on Hugging Face:
+[aman213/aidetector-data](https://huggingface.co/datasets/aman213/aidetector-data)).
 
 ```bash
 # Train the unified detector (GPU optional; CPU fallback automatic)
@@ -134,7 +136,7 @@ Full pipeline, data layout, and the stage-by-stage build are in
 ```
 aidetector/
 |-- src/              # forensic analyzers + feature pipeline + unified detector
-|-- data/             # dataset (not in the repo - available from the owner on request)
+|-- data/             # dataset (not in the repo - public on HF: aman213/aidetector-data)
 |-- models/           # trained model bundles
 |-- tests/            # pytest suite
 |-- web/              # frontend + static files
@@ -177,5 +179,6 @@ aidetector/
 ## License
 
 Code and trained models: MIT — see [LICENSE](LICENSE).
-Datasets (`data/`): not redistributed under MIT — available from the owner on request.
+Datasets (`data/`): not under MIT — published separately on Hugging Face
+([aman213/aidetector-data](https://huggingface.co/datasets/aman213/aidetector-data)).
 Papers (`papers/`): copyright of their authors/publishers.

@@ -3,8 +3,8 @@
 This card documents the data the v2 models were trained and evaluated on. All
 counts are taken from the reproducibility record
 [experiment_v1.json](experiment_v1.json) (dataset content hash
-`72b88efc0497...`). The image files themselves are **not** redistributed in this
-repository (see Access below).
+`72b88efc0497...`). The image files themselves are not in this Git repository;
+they are published on Hugging Face (see Access below).
 
 The intent of this card is honesty about what the data is and is not. The most
 important limitation: **every "real" image is a photograph.** Performance on
@@ -115,15 +115,22 @@ base's split; cross-validation groups by `base_id`. Defined in `src/dataset.py`.
 
 ## Access and reproduction
 
-The dataset is **not** included in this repository and is not currently public.
-Code and trained models are MIT-licensed; the data is not redistributed under
-MIT. It is available from the owner on request for verification.
+The dataset is published on Hugging Face:
+**[aman213/aidetector-data](https://huggingface.co/datasets/aman213/aidetector-data)**
+(full set, ~21 GB, matching the recorded content hash). Code and trained models
+are MIT-licensed; the data is not under MIT (see the per-family provenance note
+above — license is `other`).
 
-Because the data is withheld, the headline metrics are reproducible by the owner
-(via [experiment_v1.json](experiment_v1.json)) but not by an independent third
-party today. Making this dataset (or a documented subset) downloadable, with the
-provenance/license TODOs above resolved, is the main outstanding step for full
-external reproducibility.
+```bash
+hf download aman213/aidetector-data --repo-type dataset --local-dir data/
+# then restore the packed feature caches:
+mkdir -p data/derived/cache && tar -xzf data/derived/cache.tar.gz -C data/derived/cache
+```
+
+Because the full dataset is downloadable and pinned by the content hash in
+[experiment_v1.json](experiment_v1.json), the headline metrics can be reproduced
+independently, not just by the owner. The remaining open item is resolving the
+per-family provenance/license TODO above.
 
 ## Privacy
 

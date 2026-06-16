@@ -108,7 +108,8 @@ either class.
 
 ## Data Pipeline
 
-The dataset is not in the repo (available from the owner on request). On disk:
+The dataset is not in the repo (public on Hugging Face:
+[aman213/aidetector-data](https://huggingface.co/datasets/aman213/aidetector-data)). On disk:
 
 ```
 data/
