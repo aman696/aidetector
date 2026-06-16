@@ -17,7 +17,7 @@ custom domain":
 
 **Recommendation for getting `humanorai.online` live for free now:** deploy the
 **lean (classical-only)** image to **Render or Koyeb** and attach the domain. You
-lose the DINOv2 accuracy edge (AUC ~0.89 vs ~0.94) but it's genuinely free with
+lose the DINOv2 accuracy edge (classical-only ROC-AUC ~0.86 vs unified ~0.94) but it's genuinely free with
 your domain and the page is identical. Upgrade to the full model later (HF PRO or
 a tiny VPS) when you want the extra accuracy.
 
