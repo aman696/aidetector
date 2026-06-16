@@ -272,7 +272,7 @@ def eigenvalue_score(image_path: str) -> float:
     # AI images have less high-frequency content. band_high_ratio is now a POWER
     # fraction (|F|^2), so its scale is ~0.01, not ~0.3. Reference = the real
     # median band_high (measured 2026-06-14, n=40 real: ~0.0125); below it leans
-    # AI. See code_notes/03-eigen-analyzer.md.
+    # AI.
     _BAND_HIGH_REF = 0.0125
     hf_ratio = features['band_high_ratio']
     hf_deficit_score = np.clip(1.0 - (hf_ratio / _BAND_HIGH_REF), 0.0, 1.0)

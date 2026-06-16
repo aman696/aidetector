@@ -97,8 +97,7 @@ weakness, not a solved problem.
 > noted (the freq-forensic probe shifted more, since those feature values
 > changed). Prior run: `reports/family_analysis_20260613.{md,json}`.
 
-Detailed artifact: `reports/family_analysis_20260615.{md,json}`; method and the
-architecture map: `code_notes/20-family-analysis.md`, `paper_notes/architectures.md`.
+Detailed artifact: `reports/family_analysis_20260615.{md,json}`.
 Run: `python -m scripts.analyze_families`. This analysis re-scores the cached
 test/holdout matrices with the shipped v2 models and groups the 32 generator
 families by *generation architecture* (U-Net diffusion / pixel diffusion /
@@ -178,9 +177,7 @@ blind spots" framing:
 > generalization and artifact conclusions are unchanged; numbers updated below.
 
 Artifacts: `reports/ar_experiments_20260615.{md,json}`,
-`reports/ar_artifact_probe_20260615.md`; method/literature:
-`code_notes/21-ar-artifacts.md`, `paper_notes/ar-detection.md`,
-`paper_notes/architectures.md`. Run: `python -m scripts.ar_experiments`,
+`reports/ar_artifact_probe_20260615.md`. Run: `python -m scripts.ar_experiments`,
 `python -m scripts.ar_artifact_probe`.
 
 Motivation: every AR family in the data (gpt, gpt_image_1, gemini, aurora, grok)

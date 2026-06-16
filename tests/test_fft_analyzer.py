@@ -136,7 +136,7 @@ class TestPowerSpectrumIsPower:
     Regression guard for the prior bug where the radial profile was the azimuthal
     average of log-magnitude; combined with the log inside compute_spectral_slope
     that was a DOUBLE log, making the slope uninterpretable as a 1/f^beta exponent
-    (it collapsed to ~ -0.1). See code_notes/02-fft-analyzer.md.
+    (it collapsed to ~ -0.1).
     """
 
     def test_power_scales_quadratically(self):

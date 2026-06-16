@@ -17,8 +17,7 @@ Pipeline:
 6. Analyze spectral slope, high-frequency energy, and spectral features
 
 The single log that turns a 1/f^beta power law into a straight line is applied
-once, downstream in compute_spectral_slope. See code_notes/02-fft-analyzer.md
-for the prior magnitude/double-log bug and the corrected derivation.
+once, downstream in compute_spectral_slope.
 """
 
 import numpy as np
@@ -83,7 +82,7 @@ def compute_power_spectrum(image_gray: np.ndarray) -> Tuple[np.ndarray, np.ndarr
     log of this power, so a 1/f^beta image yields slope ~= -beta. The earlier
     implementation averaged log-magnitude here and logged again in the slope fit
     (a double log, and magnitude where power was intended), which made the slope
-    uninterpretable as a power-law exponent; see code_notes/02-fft-analyzer.md.
+    uninterpretable as a power-law exponent.
 
     Args:
         image_gray: Grayscale image as 2D numpy array.
@@ -258,7 +257,7 @@ def extract_fft_features(image_path: str) -> Dict[str, float]:
 # Reference values for the standalone heuristic below, measured on the current
 # data (n = 40 real + 40 AI, 2026-06-14) AFTER the power-spectrum fix. These are
 # weak, overlapping signals: only two directions held up across resamples and
-# they are recorded as such in code_notes/02-fft-analyzer.md. The shipped
+# they are recorded as such. The shipped
 # detector does NOT use this score; it feeds the raw features to the SVM. This
 # heuristic only powers the v1 voting fallback and the per-signal display.
 _SLOPE_NATURAL = -2.6      # median power-law exponent of natural images (beta ~ 2.6)
@@ -280,7 +279,7 @@ def fft_score(image_path: str) -> float:
 
     Spectral falloff is intentionally not used: its direction flipped between
     resamples (overlapping distributions), so it is not a reliable standalone
-    signal. See code_notes/02-fft-analyzer.md for the measured numbers.
+    signal.
 
     Args:
         image_path: Path to image file.

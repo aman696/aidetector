@@ -5,7 +5,7 @@ gates, with per-condition / per-family / per-resolution breakdowns.
 Metrics per group: accuracy (at the calibrated 0.5 threshold), ROC-AUC,
 average precision, and Pd@5%FAR — "allowed 5 false accusations per 100 real
 images, how many fakes do you catch". AUC flatters; Pd@FAR is the operational
-number (see paper_notes/04). Held-out generator families have NO real images,
+number. Held-out generator families have NO real images,
 so their Pd uses the clean-condition reals as the false-alarm reference.
 
 Compares the unified model to its classical-only ablation (gate 5: the hybrid
@@ -16,7 +16,6 @@ a same-rows comparison is not meaningful (they are a reference baseline only,
 per CLAUDE.md).
 
 Run: `python -m src.evaluate_unified`. Writes reports/eval_v2_<date>.{json,md}.
-Rationale and the gate values live in code_notes/19-evaluation.md.
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 """
-Tests for src/channels.py — the platform rules are measured values
-(code_notes/14-channels-and-derived.md); these tests pin them exactly.
+Tests for src/channels.py — the platform rules are measured values;
+these tests pin them exactly.
 """
 
 import numpy as np

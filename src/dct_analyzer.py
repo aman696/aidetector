@@ -89,8 +89,8 @@ def dct_coefficient_kurtosis(dct_blocks: np.ndarray) -> float:
     """
     Kurtosis (Fisher) of the AC coefficient distribution pooled over all blocks.
 
-    Measured direction on this dataset (see dct_score and
-    code_notes/04-dct-analyzer.md): AI images show the HIGHER AC kurtosis
+    Measured direction on this dataset (see dct_score): AI images show the
+    HIGHER AC kurtosis
     (real_camera ~= 159 vs ai_generated ~= 236). DC ([0,0]) is excluded.
     """
     from scipy import stats as scipy_stats

@@ -123,7 +123,7 @@ class FeatureExtractor:
         'gradient_laplacian_mean', 'gradient_laplacian_variance',
         # PatchCraft features (3)
         'texture_contrast', 'texture_rich_mean', 'texture_poor_mean',
-        # NPR features (6) — Tan et al. CVPR 2024, see code_notes/10-npr-analyzer.md
+        # NPR features (6) — Tan et al. CVPR 2024
         'npr_mean_abs', 'npr_std', 'npr_skewness', 'npr_kurtosis',
         'npr_diag_axial_ratio', 'npr_energy_ratio',
         # Screenshot image forensics features (10) — Ng, Thongkamwitoon, Tan et al.

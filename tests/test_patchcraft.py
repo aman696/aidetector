@@ -108,8 +108,8 @@ class TestPatchcraftScore:
 
     def test_constant_image_scores_ai_like(self):
         """Zero texture contrast = maximally un-photo-like; with the measured
-        direction (real photos have HIGHER contrast, see
-        code_notes/09-patchcraft-analyzer.md) the score for a flat image is 1.0."""
+        direction (real photos have HIGHER contrast) the score for a flat
+        image is 1.0."""
         import cv2, tempfile
         img = _constant_image(256, 256, 128)
         fd, path = tempfile.mkstemp(suffix='.png')

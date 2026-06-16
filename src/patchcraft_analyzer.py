@@ -10,8 +10,7 @@ fine-grained texture found in real photographs. After high-pass filtering
 patches separates the classes. Measured on this dataset with the l_div
 diversity measure, REAL photos show the larger contrast (chaotic texture
 next to smooth regions) while generators produce more uniform statistics —
-see patchcraft_score and code_notes/09-patchcraft-analyzer.md for the
-direction note.
+see patchcraft_score for the direction note.
 
 This is robust to JPEG recompression because it uses relative differences
 between patch groups — compression shifts rich and poor patches similarly,
@@ -20,7 +19,7 @@ preserving the contrast ratio.
 Pipeline:
 1. Apply high-pass filter: hp = original − gaussian_blur
 2. Compute per-patch texture diversity l_div (4-direction mean absolute
-   neighbour difference, PatchCraft Eq. 1 — see code_notes/09-patchcraft-analyzer.md)
+   neighbour difference, PatchCraft Eq. 1)
 3. Split patches into "rich" (top 50% l_div) and "poor" (bottom 50%)
 4. Features: mean(rich) − mean(poor), mean(rich), mean(poor)
 
@@ -63,8 +62,7 @@ def compute_patch_ldiv(
     """
     Computes per-patch texture diversity l_div: the mean absolute neighbour
     difference over four directions (horizontal, vertical, diagonal,
-    anti-diagonal), per PatchCraft Eq. 1. See code_notes/09-patchcraft-analyzer.md
-    for why this replaces patch variance.
+    anti-diagonal), per PatchCraft Eq. 1 (replacing a plain patch variance).
 
     Args:
         high_pass: 2D high-pass filtered image (float64).
@@ -175,7 +173,7 @@ def patchcraft_score(image_path: str) -> float:
     pair chaotic texture with smooth regions, while generators produce more
     uniform texture statistics. LOW contrast therefore reads as AI-like.
     The SVM uses the raw features; this score is for the explanation panel
-    and the voting fallback only. See code_notes/09-patchcraft-analyzer.md.
+    and the voting fallback only.
 
     Args:
         image_path: Path to image file.

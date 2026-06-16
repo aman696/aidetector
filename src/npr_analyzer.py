@@ -8,9 +8,6 @@ nearest-neighbour resampling, which is equivalent to within-2x2-grid pixel
 differences. Real images leave heavy-tailed, irregular residue; generated
 images leave residue that is too uniform or too structured.
 
-Feature choices and the known fragility under compression are documented in
-code_notes/10-npr-analyzer.md.
-
 Features extracted (6 total):
     - npr_mean_abs: mean absolute value of the NPR map
     - npr_std: standard deviation of the NPR map

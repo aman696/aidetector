@@ -173,5 +173,4 @@ Full inputs, seeds, hashes, hyperparameters, and target metrics are recorded in
 [experiment_v1.json](experiment_v1.json). To recreate: restore `data/` to the
 recorded dataset hash, run `python -m src.train_unified --gpu --n-jobs -1`, then
 `python -m src.evaluate_unified`, and compare against the recorded metrics.
-Methodology and failure-mode detail: [RESEARCH.md](RESEARCH.md); per-feature
-rationale: `code_notes/` (local).
+Methodology and failure-mode detail: [RESEARCH.md](RESEARCH.md).

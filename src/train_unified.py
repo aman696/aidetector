@@ -24,8 +24,7 @@ group-aware (explicit StratifiedGroupKFold index splits on base_id) so the
 sigmoid is not fit on near-duplicate variants of its own held-out rows -- which
 would optimistically bias accuracy@0.5 and the clean-accuracy gate.
 
-Run: `python -m src.train_unified` (see --help). Bundle rationale and the
-row budget live in code_notes/18-training.md.
+Run: `python -m src.train_unified` (see --help).
 """
 
 from __future__ import annotations

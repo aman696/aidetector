@@ -8,8 +8,7 @@ Produces, per image, a 770-dimensional vector:
                space). Real images are more robust to tiny perturbations, so
                their drift is smaller; larger drift reads as more AI-like.
 
-Design rationale (model choice, crop, sigmas) lives in
-code_notes/16-embedding-extractor.md. The repository must keep working
+The repository must keep working
 without torch/timm, so those are imported lazily inside DinoEmbedder; this
 module is importable (and the classical pipeline runnable) without them.
 

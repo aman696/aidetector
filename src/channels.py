@@ -3,7 +3,7 @@ Platform-channel emulation: pure transforms reproducing what social media
 platforms do to uploaded images.
 
 Parameters are measured values from the TrueFake dataset paper, not tuning
-choices — see code_notes/14-channels-and-derived.md. Emulators return the
+choices. Emulators return the
 final ENCODED bytes
 (plus the parameters applied), so what is written to disk is the single
 platform compression pass, never a second re-encode. Nothing here touches
