@@ -87,23 +87,23 @@ def dct_high_freq_energy(dct_blocks: np.ndarray) -> float:
 
 def dct_coefficient_kurtosis(dct_blocks: np.ndarray) -> float:
     """
-    Kurtosis of AC coefficient distribution across all blocks.
-    Natural images tend to have heavy-tailed (high kurtosis) DCT distributions.
-    AI images may have lighter tails.
+    Kurtosis (Fisher) of the AC coefficient distribution pooled over all blocks.
+
+    Measured direction on this dataset (see dct_score and
+    code_notes/04-dct-analyzer.md): AI images show the HIGHER AC kurtosis
+    (real_camera ~= 159 vs ai_generated ~= 236). DC ([0,0]) is excluded.
     """
     from scipy import stats as scipy_stats
-    
-    # Extract all AC coefficients (exclude DC)
-    ac_coeffs = []
-    for block in dct_blocks:
-        # Flatten and skip DC
-        flat = block.flatten()
-        ac_coeffs.extend(flat[1:])  # Skip [0,0] = DC
-    
-    ac = np.array(ac_coeffs)
-    if np.std(ac) < 1e-10:
+
+    n = dct_blocks.shape[0]
+    if n == 0:
         return 0.0
-    
+    # Pool all AC coefficients (drop index 0 = DC per block). Row-major flatten
+    # then drop-first matches the prior per-block loop exactly, but vectorized.
+    ac = dct_blocks.reshape(n, -1)[:, 1:].ravel()
+    if ac.size == 0 or np.std(ac) < 1e-10:
+        return 0.0
+
     return float(scipy_stats.kurtosis(ac, fisher=True))
 
 

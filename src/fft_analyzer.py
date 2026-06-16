@@ -153,15 +153,23 @@ def compute_spectral_slope(radial_spectrum: np.ndarray) -> Tuple[float, float]:
 
 def compute_high_freq_ratio(radial_spectrum: np.ndarray, cutoff_fraction: float = 0.5) -> float:
     """
-    Computes the ratio of high-frequency energy to total energy.
-    
+    Ratio of the high-frequency tail of the radial power profile to the whole.
+
+    NOTE on naming: the input is the azimuthally AVERAGED power |F|^2 (each
+    radius is the mean over its ring, already divided by the ring's pixel
+    count). Summing those per-ring means is therefore a radial-PROFILE ratio,
+    NOT a true energy ratio (which would sum the un-averaged ring power and so
+    weight large outer rings by their pixel count). The value is a stable,
+    monotone proxy that the SVM consumes; it is not physical energy.
+
     Args:
-        radial_spectrum: 1D azimuthally averaged spectrum.
-        cutoff_fraction: Fraction of spectrum to consider as "high frequency".
-                         0.5 means the outer 50% of frequencies.
-        
+        radial_spectrum: 1D azimuthally averaged power profile (from
+            compute_power_spectrum).
+        cutoff_fraction: Fraction of the profile treated as "high frequency".
+                         0.5 means the outer 50% of radii.
+
     Returns:
-        Ratio of high-frequency energy to total energy (0.0 to 1.0).
+        Ratio of the outer-radius profile sum to the full profile sum (0.0-1.0).
     """
     n = len(radial_spectrum)
     if n == 0:
@@ -221,7 +229,8 @@ def extract_fft_features(image_path: str) -> Dict[str, float]:
         Dictionary of feature name → value:
             - spectral_slope: slope of log-log power spectrum
             - slope_r_squared: goodness of fit to power law
-            - high_freq_ratio: energy in high frequencies / total
+            - high_freq_ratio: high-frequency / total radial-profile power
+              (a profile ratio, not physical energy; see compute_high_freq_ratio)
             - spectral_falloff: sharpness of high-freq drop-off
     """
     validate_image_path(image_path)
