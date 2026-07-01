@@ -135,6 +135,19 @@
         .note { margin: 0 18px 16px; padding: 10px 13px; border-radius: 10px; font-size: 13px; }
         .note.info { background: #fff8e6; border: 1px solid #f5e3a8; color: #7a5d00; }
 
+        /* Contribute / self-label (testing) */
+        .contribute { border-top: 1px solid var(--line); padding: 16px 18px; }
+        .contribute h3 { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 6px; }
+        .contribute p { font-size: 13px; color: var(--ink-soft); }
+        .cbtns { display: flex; gap: 10px; margin: 11px 0 7px; flex-wrap: wrap; }
+        .cbtn { border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+            padding: 8px 14px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+        .cbtn:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+        .cbtn[data-label="unsure"] { color: var(--ink-soft); }
+        .cnote { color: var(--muted); font-size: 12px; }
+        .cthanks { padding: 4px 0; font-size: 14px; color: var(--real); }
+        .cthanks.err { color: #b42318; }
+
         details.detail { border-top: 1px solid var(--line); }
         details.detail summary { padding: 14px 18px; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--ink-soft); list-style: none; }
         details.detail summary::-webkit-details-marker { display: none; }
@@ -372,7 +385,7 @@
                     const e = await r.json().catch(() => ({}));
                     return showError(e.detail || "Something went wrong scanning that image.");
                 }
-                render(await r.json(), previewUrl);
+                render(await r.json(), previewUrl, file);
             } catch (err) {
                 showError("Couldn't reach the scanner. Check your connection and try again.");
             }
@@ -411,7 +424,7 @@
             return items;
         }
 
-        function render(d, previewUrl) {
+        function render(d, previewUrl, file) {
             const pAI = (d.probability_ai ?? 50) / 100;   // app returns 0–100
             let state, cls, pill;
             if (pAI >= 0.60) { state = 'Likely AI-generated'; cls = 'ai'; }
@@ -479,8 +492,47 @@
                 </p>
                 <div class="bars">${scoreRows || '<p style="color:var(--muted);font-size:13px">No detailed signals available.</p>'}</div>
               </details>
+              <div class="contribute" id="contribute">
+                <h3>Know the answer? Help improve the detector</h3>
+                <p>If you know whether this image is real or AI-generated, tell us and donate it
+                   to the open training set. This is how the model gets better on hard cases.</p>
+                <div class="cbtns">
+                  <button type="button" class="cbtn" data-label="real">It's a real photo</button>
+                  <button type="button" class="cbtn" data-label="ai">It's AI-generated</button>
+                  <button type="button" class="cbtn" data-label="unsure">Not sure</button>
+                </div>
+                <p class="cnote">Tapping a button stores this image and your label to improve the
+                   model. Only contribute images you're comfortable sharing.</p>
+              </div>
             </div>`;
+
+            const cwrap = result.querySelector('#contribute');
+            if (cwrap && file) {
+                cwrap.querySelectorAll('.cbtn').forEach(btn =>
+                    btn.addEventListener('click', () => contribute(file, d, btn.dataset.label, cwrap)));
+            }
             result.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        async function contribute(file, d, label, root) {
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('label', label);
+            if (d && typeof d.probability_ai === 'number') {
+                fd.append('model_probability_ai', d.probability_ai / 100);  // app returns 0-100
+            }
+            root.innerHTML = '<p class="cthanks">Saving…</p>';
+            try {
+                const r = await fetch('/api/contribute', { method: 'POST', body: fd });
+                if (r.ok) {
+                    root.innerHTML = '<p class="cthanks">Thank you — saved. This helps the detector get better on real-world images.</p>';
+                } else {
+                    const e = await r.json().catch(() => ({}));
+                    root.innerHTML = `<p class="cthanks err">${e.detail || "Couldn't save that — please try again."}</p>`;
+                }
+            } catch (err) {
+                root.innerHTML = '<p class="cthanks err">Couldn\'t reach the server. Please try again.</p>';
+            }
         }
     </script>
 </body>

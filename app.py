@@ -20,13 +20,16 @@ Run locally:  python app.py            (http://localhost:8000)
 Serve (prod): uvicorn app:app --host 0.0.0.0 --port ${PORT:-7860}
 """
 
+import hashlib
 import io
+import json
 import logging
 import os
 import shutil
 import sys
 import tempfile
 import time
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, UploadFile, HTTPException, Form, Request
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
@@ -59,6 +62,16 @@ ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "*").split(",") i
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP"}
+
+# --- Contribution / self-labeling (testing branch only) ---------------------- #
+# Opt-in: users can donate an image plus THEIR OWN label ("real" / "ai" /
+# "unsure") to grow the training set. This is deliberately separate from the
+# /api/detect path, which stays privacy-preserving (deleted after scan). Storing
+# only happens on an explicit second action with a clear on-screen notice.
+CONTRIB_ENABLED = os.getenv("CONTRIB_ENABLED", "1") == "1"
+CONTRIB_DIR = os.getenv("CONTRIB_DIR", "contributions")
+CONTRIB_RATE_LIMIT = os.getenv("CONTRIB_RATE_LIMIT", "30/minute")
+CONTRIB_LABELS = {"real", "ai", "unsure"}
 
 # Refuse to decode absurdly large images (Pillow raises above this).
 Image.MAX_IMAGE_PIXELS = MAX_PIXELS
@@ -279,6 +292,81 @@ async def detect_image(request: Request, file: UploadFile, mode: str = Form("nor
     finally:
         _inflight -= 1
         shutil.rmtree(tmp_dir, ignore_errors=True)     # PRIVACY: upload deleted now
+
+
+# --------------------------------------------------------------------------- #
+# Contribution / self-labeling endpoint (opt-in dataset growth)
+# --------------------------------------------------------------------------- #
+def _store_contribution(contents: bytes, label: str, ext: str,
+                        model_p: "float | None") -> dict:
+    """Persist a donated image under contributions/<label>/<sha256><ext> and
+    append a JSONL metadata record. Content-addressed by sha256, so identical
+    resubmissions collapse to one file (dedup) while every event is still
+    logged. Returns the record."""
+    label_dir = os.path.join(CONTRIB_DIR, label)
+    os.makedirs(label_dir, exist_ok=True)
+    digest = hashlib.sha256(contents).hexdigest()
+    fpath = os.path.join(label_dir, f"{digest}{ext}")
+    is_new = not os.path.exists(fpath)
+    if is_new:
+        with open(fpath, "wb") as f:
+            f.write(contents)
+    rec = {
+        "id": digest,
+        "label": label,
+        "ext": ext,
+        "bytes": len(contents),
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "model_probability_ai": model_p,   # user label vs model score -> hard cases
+        "new_file": is_new,
+    }
+    with open(os.path.join(CONTRIB_DIR, "contributions.jsonl"), "a") as f:
+        f.write(json.dumps(rec) + "\n")
+    return rec
+
+
+@app.post("/api/contribute")
+@limiter.limit(CONTRIB_RATE_LIMIT)
+async def contribute_image(request: Request, file: UploadFile,
+                           label: str = Form(...),
+                           model_probability_ai: str = Form("")):
+    """Opt-in: store a donated image plus the user's own real/ai/unsure label.
+    Reuses the same validation as /api/detect. Unlike /api/detect, this DOES
+    persist the image (by design), so it is only ever called from an explicit
+    'contribute' button with an on-screen storage notice."""
+    if not CONTRIB_ENABLED:
+        raise HTTPException(404, "Contributions are not enabled on this server.")
+
+    label = (label or "").strip().lower()
+    if label not in CONTRIB_LABELS:
+        raise HTTPException(400, "Label must be one of: real, ai, unsure.")
+
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(400, "Unsupported file type. Use JPEG, PNG, or WebP.")
+
+    cl = request.headers.get("content-length")
+    if cl and cl.isdigit() and int(cl) > MAX_FILE_SIZE + 4096:
+        raise HTTPException(413, "File too large. Maximum size is 10 MB.")
+
+    contents = await file.read()
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(413, "File too large. Maximum size is 10 MB.")
+    _validate_image_bytes(contents)   # magic/format/dimension + bomb guard
+
+    model_p = None
+    try:
+        model_p = float(model_probability_ai) if model_probability_ai != "" else None
+    except ValueError:
+        model_p = None
+
+    try:
+        rec = await run_in_threadpool(_store_contribution, contents, label, ext, model_p)
+    except Exception:
+        logger.exception("Contribution store failed")
+        raise HTTPException(500, "Could not save your contribution. Please try again.")
+
+    return {"status": "ok", "id": rec["id"], "stored_new": rec["new_file"], "label": label}
 
 
 # --------------------------------------------------------------------------- #

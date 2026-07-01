@@ -43,3 +43,5 @@ V2_PROGRESS.md
 # secrets (Cloudflare tunnel token)
 .env
 SELFHOST_LEARNING.md
+# opt-in donated images (testing branch)
+contributions/
