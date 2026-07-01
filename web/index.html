@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Human or AI? — Free, private AI image detector</title>
     <meta name="description"
-        content="Check whether a photo was made by an AI or taken by a real camera. Free, no sign-up. Your image is deleted the moment it's scanned — never stored, never used for training.">
+        content="Check whether a photo was made by an AI or taken by a real camera. Free, no sign-up. Scans are private, and you can help improve the detector by contributing images you label.">
     <meta name="theme-color" content="#2563eb">
     <meta name="robots" content="index,follow">
     <link rel="canonical" href="https://humanorai.online/">
@@ -15,14 +15,14 @@
     <meta property="og:type" content="website">
     <meta property="og:title" content="Is this image AI-generated? — Free, private detector">
     <meta property="og:description"
-        content="Check whether a photo was made by an AI or a real camera. Free, no sign-up, and your image is deleted the moment it's scanned.">
+        content="Check whether a photo was made by an AI or a real camera. Free, no sign-up — and you can help improve it by contributing labelled images.">
     <meta property="og:url" content="https://humanorai.online/">
     <meta property="og:image" content="https://humanorai.online/static/og-image.png">
     <meta property="og:site_name" content="Human or AI?">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Is this image AI-generated? — Free, private detector">
     <meta name="twitter:description"
-        content="Free, no sign-up AI image detector that deletes every upload after scanning.">
+        content="Free, no sign-up AI image detector — help it improve by contributing images you label.">
     <meta name="twitter:image" content="https://humanorai.online/static/og-image.png">
 
     <!-- System font stack: no external font request (faster + nothing leaves your browser). -->
@@ -194,7 +194,7 @@
           "@type": "WebApplication",
           "name": "Human or AI?",
           "url": "https://humanorai.online/",
-          "description": "A free, private tool that estimates whether an image was made by an AI generator or captured by a real camera, and explains why in plain language. Uploads are deleted immediately after scanning and never used for training.",
+          "description": "A free tool that estimates whether an image was made by an AI generator or captured by a real camera, and explains why in plain language. Scans are private; users can optionally contribute labelled images to help improve the model.",
           "applicationCategory": "MultimediaApplication",
           "operatingSystem": "Any (web browser)",
           "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
@@ -202,7 +202,7 @@
             "Detects AI-generated images",
             "Explains the result in plain language",
             "No sign-up or account",
-            "Images deleted after scanning, never stored or used for training"
+            "Optional: contribute labelled images to help improve the detector"
           ]
         },
         {
@@ -216,7 +216,7 @@
             {
               "@type": "Question",
               "name": "Do you keep my photos?",
-              "acceptedAnswer": { "@type": "Answer", "text": "No. Each upload is deleted the moment the scan finishes. Nothing is stored, logged, or used for training." }
+              "acceptedAnswer": { "@type": "Answer", "text": "A normal scan is deleted right after it runs. Images are only kept if you choose to contribute them, along with your real-or-AI label, to help improve the detector." }
             },
             {
               "@type": "Question",
@@ -267,7 +267,7 @@
                     <rect x="3" y="11" width="18" height="11" rx="2"></rect>
                     <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                 </svg>
-                Deleted the moment it's scanned · never stored · never used for training
+                Free &amp; private scan · no sign-up · contribute images to help it improve
             </div>
         </div>
 
@@ -290,20 +290,20 @@
                 <div class="step">
                     <div class="n">3</div>
                     <h3>You get a verdict</h3>
-                    <p>A clear estimate with a confidence level and the plain-language signals behind it — then your
-                        image is deleted.</p>
+                    <p>A clear estimate with a confidence level and the plain-language signals behind it. Then your
+                        scan is deleted — or you can contribute it, with your label, to help the detector improve.</p>
                 </div>
             </div>
         </section>
 
         <section class="block" id="privacy">
-            <h2>Your privacy</h2>
+            <h2>Privacy &amp; helping out</h2>
             <p style="color:var(--ink-soft);max-width:620px">
-                We built this to be used without a second thought. There's <strong>no account and no sign-up</strong>.
-                Your image is written to temporary storage only for the few seconds the scan runs, then
-                <strong>permanently deleted</strong> — it is never saved to a database, never logged, and
-                <strong>never used to train any model</strong>. We can't look at it after the scan because it no
-                longer exists.
+                There's <strong>no account and no sign-up</strong>. A normal scan runs in temporary storage for a
+                few seconds and is then deleted — we don't keep it. If you'd like to help, you can
+                <strong>contribute an image together with your own real-or-AI label</strong>: contributed images are
+                stored and used to <strong>improve the detector</strong>, and every one makes it better on
+                real-world cases. Only contribute images you're comfortable sharing.
             </p>
         </section>
 
@@ -313,8 +313,9 @@
                 <dt>Is it free?</dt>
                 <dd>Yes — free, with no account or sign-up.</dd>
                 <dt>Do you keep my photos?</dt>
-                <dd>No. Each upload is deleted the moment the scan finishes. Nothing is stored, logged, or used for
-                    training.</dd>
+                <dd>Only if you choose to. A normal scan is deleted the moment it finishes. If you tap a
+                    "contribute" button after a result, that image and your label are stored to help improve the
+                    detector.</dd>
                 <dt>How accurate is it?</dt>
                 <dd>It reliably flags mainstream AI generators and real photos, and holds up on social-media and
                     screenshot images. It's an estimate, not proof — newer "flow-style" generators are harder, so
@@ -327,7 +328,7 @@
     </main>
 
     <footer class="wrap">
-        Free &amp; private · no sign-up · images deleted after scanning. This tool gives an estimate, not legal proof.
+        Free · no sign-up · scans are private, and you can contribute images to help improve the detector. This tool gives an estimate, not legal proof.
     </footer>
 
     <script>
