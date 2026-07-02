@@ -51,6 +51,10 @@ def _payload() -> bytes:
 _IMAGE_BYTES = _payload()
 _MIN_WAIT = float(os.getenv("LOCUST_MIN_WAIT", "0"))
 _MAX_WAIT = float(os.getenv("LOCUST_MAX_WAIT", "0"))
+# Override the Host header so you can hit the server DIRECTLY (e.g. its Tailscale
+# IP / Traefik on :80) while still routing to the right app, bypassing Cloudflare.
+#   LOCUST_HOST_HEADER=staging.humanorai.online ... --host http://zero
+_HOST_HEADER = os.getenv("LOCUST_HOST_HEADER", "")
 
 
 class DetectUser(HttpUser):
@@ -59,7 +63,9 @@ class DetectUser(HttpUser):
     @task
     def detect(self):
         files = {"file": ("load.jpg", io.BytesIO(_IMAGE_BYTES), "image/jpeg")}
-        with self.client.post("/api/detect", files=files, catch_response=True) as r:
+        headers = {"Host": _HOST_HEADER} if _HOST_HEADER else {}
+        with self.client.post("/api/detect", files=files, headers=headers,
+                              catch_response=True) as r:
             if r.status_code == 200:
                 r.success()
             elif r.status_code in (429, 503):
