@@ -88,3 +88,28 @@ class TestOverloadGuard:
                         files={"file": ("x.png", buf.getvalue(), "image/png")},
                         headers={"X-Forwarded-For": "203.0.113.7"})
         assert r.status_code == 503
+
+
+class TestMetrics:
+    def test_metrics_open_by_default(self, monkeypatch):
+        monkeypatch.setattr(appmod, "METRICS_TOKEN", "")
+        r = client.get("/metrics")
+        assert r.status_code == 200
+        assert "detect_requests_total" in r.text
+        assert "detect_inflight" in r.text
+
+    def test_metrics_gated_when_token_set(self, monkeypatch):
+        monkeypatch.setattr(appmod, "METRICS_TOKEN", "s3cret")
+        # no token -> 404, not 401 (don't confirm the route exists)
+        assert client.get("/metrics").status_code == 404
+        # wrong token -> still 404
+        assert client.get("/metrics?token=wrong").status_code == 404
+        # correct token via query param
+        assert client.get("/metrics?token=s3cret").status_code == 200
+        # correct token via Authorization header
+        r = client.get("/metrics", headers={"Authorization": "Bearer s3cret"})
+        assert r.status_code == 200
+
+    def test_inflight_capacity_reflects_config(self):
+        r = client.get("/metrics")
+        assert "detect_inflight_capacity" in r.text

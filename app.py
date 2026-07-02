@@ -32,12 +32,14 @@ import time
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, UploadFile, HTTPException, Form, Request
-from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from PIL import Image, UnidentifiedImageError
+from prometheus_client import (CONTENT_TYPE_LATEST, Counter, Gauge, Histogram,
+                               generate_latest)
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -72,6 +74,12 @@ CONTRIB_ENABLED = os.getenv("CONTRIB_ENABLED", "1") == "1"
 CONTRIB_DIR = os.getenv("CONTRIB_DIR", "contributions")
 CONTRIB_RATE_LIMIT = os.getenv("CONTRIB_RATE_LIMIT", "30/minute")
 CONTRIB_LABELS = {"real", "ai", "unsure"}
+
+# --- Metrics (see MONITORING.md) --------------------------------------------- #
+# /metrics is meant for PRIVATE scraping only (Tailscale/localhost) — never give
+# it a public tunnel hostname. METRICS_TOKEN is an optional second layer: if set,
+# the route 404s (not 401, so it doesn't confirm the route exists) without it.
+METRICS_TOKEN = os.getenv("METRICS_TOKEN", "")
 
 # Refuse to decode absurdly large images (Pillow raises above this).
 Image.MAX_IMAGE_PIXELS = MAX_PIXELS
@@ -157,6 +165,30 @@ if ALLOWED_HOSTS and ALLOWED_HOSTS != ["*"]:
 import asyncio
 _detect_sem = asyncio.Semaphore(MAX_CONCURRENT)
 _inflight = 0
+
+# --------------------------------------------------------------------------- #
+# Prometheus metrics (see MONITORING.md — scraped by the monitoring stack,
+# never exposed on the public tunnel). Mirrors the concurrency/overload state
+# already tracked above so "how many users right now" is a real metric, not
+# inferred from host CPU.
+# --------------------------------------------------------------------------- #
+METRIC_DETECT_REQUESTS = Counter(
+    "detect_requests_total", "Total /api/detect requests by outcome.",
+    ["outcome"])  # ok | client_error | busy | timeout | server_error
+METRIC_DETECT_DURATION = Histogram(
+    "detect_duration_seconds", "Time spent running one detection (scan only).",
+    buckets=(0.5, 1, 2, 3, 5, 8, 13, 21, 34, 60))
+METRIC_INFLIGHT = Gauge(
+    "detect_inflight", "Requests currently running or queued for a scan slot.")
+METRIC_INFLIGHT_CAPACITY = Gauge(
+    "detect_inflight_capacity",
+    "Max requests allowed in flight before 503 (MAX_CONCURRENT + MAX_QUEUE).")
+METRIC_INFLIGHT_CAPACITY.set(MAX_CONCURRENT + MAX_QUEUE)
+METRIC_FALLBACK = Counter(
+    "detect_fallback_total",
+    "Scans served by the classical-only fallback (torch unavailable).")
+METRIC_CONTRIBUTIONS = Counter(
+    "contributions_total", "Opt-in image contributions by label.", ["label"])
 
 # --------------------------------------------------------------------------- #
 # Model
@@ -262,10 +294,14 @@ async def detect_image(request: Request, file: UploadFile, mode: str = Form("nor
 
     # Overload guard: at most MAX_CONCURRENT running + MAX_QUEUE waiting. Beyond
     # that, turn requests away immediately instead of letting them pile up.
+    # This is the precise "too many users at once" signal for monitoring —
+    # tracked as a metric rather than inferred from host CPU.
     global _inflight
     if _inflight >= MAX_CONCURRENT + MAX_QUEUE:
+        METRIC_DETECT_REQUESTS.labels(outcome="busy").inc()
         raise HTTPException(503, "The server is busy right now — please try again in a moment.")
     _inflight += 1
+    METRIC_INFLIGHT.set(_inflight)
 
     tmp_dir = tempfile.mkdtemp()
     tmp_path = os.path.join(tmp_dir, f"upload{ext}")
@@ -279,18 +315,27 @@ async def detect_image(request: Request, file: UploadFile, mode: str = Form("nor
             # client gets a clean response.)
             payload = await asyncio.wait_for(
                 run_in_threadpool(_run_detection, tmp_path), timeout=SCAN_TIMEOUT)
-        payload["analysis_time"] = round(time.time() - start, 2)
+        duration = time.time() - start
+        payload["analysis_time"] = round(duration, 2)
+        METRIC_DETECT_DURATION.observe(duration)
+        METRIC_DETECT_REQUESTS.labels(outcome="ok").inc()
+        if payload.get("fallback"):
+            METRIC_FALLBACK.inc()
         return payload
     except asyncio.TimeoutError:
+        METRIC_DETECT_REQUESTS.labels(outcome="timeout").inc()
         logger.warning("Scan exceeded %ss timeout", SCAN_TIMEOUT)
         raise HTTPException(503, "That image took too long to scan — please try again.")
     except HTTPException:
+        METRIC_DETECT_REQUESTS.labels(outcome="server_error").inc()
         raise
     except Exception:
+        METRIC_DETECT_REQUESTS.labels(outcome="server_error").inc()
         logger.exception("Detection failed")          # full detail server-side only
         raise HTTPException(500, "Analysis failed. Please try a different image.")
     finally:
         _inflight -= 1
+        METRIC_INFLIGHT.set(_inflight)
         shutil.rmtree(tmp_dir, ignore_errors=True)     # PRIVACY: upload deleted now
 
 
@@ -366,7 +411,27 @@ async def contribute_image(request: Request, file: UploadFile,
         logger.exception("Contribution store failed")
         raise HTTPException(500, "Could not save your contribution. Please try again.")
 
+    METRIC_CONTRIBUTIONS.labels(label=label).inc()
     return {"status": "ok", "id": rec["id"], "stored_new": rec["new_file"], "label": label}
+
+
+# --------------------------------------------------------------------------- #
+# Metrics scrape endpoint (Prometheus text format)
+# --------------------------------------------------------------------------- #
+@app.get("/metrics")
+async def metrics(request: Request):
+    """Prometheus scrape endpoint — request/latency/inflight/contribution
+    counters defined above. PRIVATE ONLY: the monitoring stack scrapes this over
+    Tailscale/localhost; it must never be given a public tunnel hostname (see
+    MONITORING.md). If METRICS_TOKEN is set, requires it as `Authorization:
+    Bearer <token>` or `?token=`."""
+    if METRICS_TOKEN:
+        auth = request.headers.get("authorization", "")
+        supplied = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
+        supplied = supplied or request.query_params.get("token", "")
+        if supplied != METRICS_TOKEN:
+            raise HTTPException(404)  # 404, not 401 -- don't confirm the route exists
+    return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 # --------------------------------------------------------------------------- #

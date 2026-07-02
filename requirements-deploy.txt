@@ -16,3 +16,4 @@ uvicorn[standard]
 python-multipart
 pydantic
 slowapi          # per-IP rate limiting
+prometheus-client  # /metrics endpoint for the monitoring stack (see MONITORING.md)

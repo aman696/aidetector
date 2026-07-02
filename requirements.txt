@@ -9,6 +9,7 @@ fastapi
 uvicorn
 python-multipart  # required by FastAPI for image uploads (app.py /api/detect)
 pydantic
+prometheus-client  # /metrics endpoint for the monitoring stack (see MONITORING.md)
 
 # Optional (hybrid v2 embeddings). The repo runs classical-only without these;
 # install for the DINOv2 path: pip install torch timm
