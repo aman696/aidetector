@@ -54,8 +54,12 @@ groups:
           description: "Prometheus can't reach this target — the exporter or the container it monitors may have crashed or the host may be asleep (check the lid/suspend settings)."
 
       - alert: ContainerNearMemoryLimit
+        # `(limit > 0)` is a value FILTER (drops series whose limit is 0, i.e. no
+        # limit set) — the divide-by-zero guard. It is NOT a label matcher; a
+        # numeric comparison inside {} is invalid PromQL and crashes Prometheus.
         expr: |
-          (container_memory_usage_bytes{name!=""} / container_spec_memory_limit_bytes{name!="", container_spec_memory_limit_bytes>0}) > 0.9
+          (container_memory_usage_bytes{name!=""}
+             / (container_spec_memory_limit_bytes{name!=""} > 0)) > 0.9
         for: 5m
         labels: {severity: warning}
         annotations:
