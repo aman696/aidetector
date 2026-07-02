@@ -1,0 +1,16 @@
+# Tells Grafana to auto-load any dashboard JSON dropped in this folder. Only
+# app-specific.json ships here — for host/container metrics, import the
+# well-maintained COMMUNITY dashboards instead (better than reinventing them):
+#   Grafana -> Dashboards -> Import -> ID 1860  (Node Exporter Full)
+#   Grafana -> Dashboards -> Import -> ID 14282 (cAdvisor / Docker Container metrics)
+
+apiVersion: 1
+
+providers:
+  - name: default
+    folder: ""
+    type: file
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

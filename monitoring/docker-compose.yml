@@ -1,0 +1,109 @@
+# Monitoring/alerting stack — runs ALONGSIDE Coolify, not through it. Coolify
+# manages the app containers (humanorai prod + testing); this stack watches the
+# whole host and every container on it (Coolify-managed or not) from outside.
+#
+#   cd monitoring && docker compose up -d
+#
+# SECURITY: none of these services are meant to be public. Reach them only over
+# Tailscale/localhost — never give any of them a Cloudflare Tunnel public
+# hostname (same rule as the Coolify dashboard itself; see MONITORING.md). All
+# services either bind 127.0.0.1 explicitly or run on host networking with an
+# explicit --web.listen-address of 127.0.0.1.
+#
+# - node-exporter : host metrics (disk, CPU, RAM, load, network)
+# - cadvisor      : per-CONTAINER metrics (CPU/RAM/network for every container
+#                    on the host, including Coolify-managed ones) — needs no
+#                    knowledge of Coolify's internal network, it reads the
+#                    Docker daemon directly.
+# - prometheus    : scrapes both, plus (optionally) the app's own /metrics —
+#                    see prometheus/prometheus.yml for that optional target.
+# - alertmanager  : routes firing alerts to email. EDIT alertmanager/alertmanager.yml
+#                    directly with your real SMTP credentials (Alertmanager does not
+#                    read environment variables from its config file, unlike
+#                    docker-compose's own ${VAR} substitution used below).
+# - grafana       : dashboards. Datasource is auto-provisioned; import the
+#                    community "Node Exporter Full" (ID 1860) and "cAdvisor
+#                    Exporter" (ID 14282) dashboards on first login — see
+#                    MONITORING.md.
+#
+# Put GRAFANA_ADMIN_PASSWORD in monitoring/.env (see .env.example) — this ONE
+# value is genuinely substituted by docker-compose itself, unlike the SMTP
+# settings above.
+
+services:
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: unless-stopped
+    pid: host
+    network_mode: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+      - "--web.listen-address=127.0.0.1:9100"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "127.0.0.1:8085:8080"     # localhost only; Prometheus scrapes this
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    network_mode: host      # simplest way to reach node-exporter (host mode),
+                             # cadvisor (127.0.0.1:8085), the app, and alertmanager
+                             # — all via localhost, with no network stitching.
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.listen-address=127.0.0.1:9090"
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: alertmanager
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--web.listen-address=127.0.0.1:9093"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    network_mode: host       # so its provisioned Prometheus datasource can
+                              # reach http://localhost:9090 with no extra config
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-changeme}
+      GF_SERVER_HTTP_ADDR: "127.0.0.1"   # loopback only, even under host networking
+      GF_SERVER_HTTP_PORT: "3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+
+volumes:
+  prometheus_data:
+  grafana_data:

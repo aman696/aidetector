@@ -1,0 +1,36 @@
+# Routes firing alerts to email. EDIT THE PLACEHOLDERS BELOW DIRECTLY with your
+# real values, then `docker compose restart alertmanager`.
+#
+# IMPORTANT: Alertmanager reads this file as static YAML — it does NOT expand
+# ${ENV_VAR} the way docker-compose does. Put your real SMTP credentials
+# straight into this file (it is NOT committed with real secrets — see
+# monitoring/.gitignore).
+#
+# Gmail users: use an "app password" (myaccount.google.com/apppasswords), not
+# your normal password — Gmail rejects plain-password SMTP from apps.
+#
+# Prefer Telegram instead of email? Replace the `email_configs:` block below
+# with a `webhook_configs:` pointing at a small bridge (e.g.
+# https://github.com/metalmatze/alertmanager-bot), or use Alertmanager's
+# built-in `msteams_configs`/`slack_configs`/`webhook_configs` receivers if
+# you'd rather use one of those instead of email.
+
+global:
+  smtp_smarthost: "smtp.gmail.com:587"
+  smtp_from: "YOUR_ALERT_SENDER@gmail.com"
+  smtp_auth_username: "YOUR_ALERT_SENDER@gmail.com"
+  smtp_auth_password: "YOUR_GMAIL_APP_PASSWORD"
+  smtp_require_tls: true
+
+route:
+  receiver: email-me
+  group_by: ["alertname"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 3h        # don't re-page for the same firing alert more than every 3h
+
+receivers:
+  - name: email-me
+    email_configs:
+      - to: "YOUR_EMAIL@example.com"
+        send_resolved: true

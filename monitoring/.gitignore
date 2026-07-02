@@ -1,0 +1,3 @@
+# Real secrets — created locally from the .example templates, never committed.
+alertmanager.yml
+.env

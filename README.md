@@ -148,6 +148,8 @@ aidetector/
 |-- DATASET.md        # dataset card: sources, licenses, counts, biases, access
 |-- experiment_v1.json # reproducibility record (hashes, seeds, hyperparameters)
 |-- SECURITY.md       # web service threat model and controls
+|-- MONITORING.md     # Prometheus/Grafana/Alertmanager stack, alert thresholds
+|-- monitoring/       # the monitoring stack itself (docker compose, configs)
 |-- AGENTS.md         # contributor rules and licensing
 |-- requirements.txt
 ```

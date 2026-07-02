@@ -1,0 +1,72 @@
+{
+  "title": "Human or AI? — App Metrics",
+  "uid": "humanorai-app",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Concurrency: in-flight vs capacity (\"how many users right now\")",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "targets": [
+        { "expr": "detect_inflight", "legendFormat": "in-flight (running + queued)", "refId": "A" },
+        { "expr": "detect_inflight_capacity", "legendFormat": "capacity (503 above this)", "refId": "B" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Requests by outcome (rate, 5m)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "targets": [
+        { "expr": "sum by (outcome) (rate(detect_requests_total[5m]))", "legendFormat": "{{outcome}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "p95 scan duration",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum by (le) (rate(detect_duration_seconds_bucket[5m])))", "legendFormat": "p95 seconds", "refId": "A" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Users turned away (busy/503), last hour",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "targets": [
+        { "expr": "sum(increase(detect_requests_total{outcome=\"busy\"}[1h]))", "refId": "A" }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Classical-fallback scans, last hour",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "targets": [
+        { "expr": "sum(increase(detect_fallback_total[1h]))", "refId": "A" }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Contributions by label, last 24h",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "targets": [
+        { "expr": "sum by (label) (increase(contributions_total[24h]))", "legendFormat": "{{label}}", "refId": "A" }
+      ]
+    }
+  ]
+}

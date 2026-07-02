@@ -13,6 +13,7 @@ reference for how to run and rebuild the system.
   acceptance-gate status in [RESEARCH.md](RESEARCH.md) and
   [MODEL_CARD.md](MODEL_CARD.md); the data itself in [DATASET.md](DATASET.md).
   They are not duplicated here. Contributor rules: [CONTRIBUTING.md](CONTRIBUTING.md).
+  Server monitoring/alerting: [MONITORING.md](MONITORING.md).
 
 The older `models/svm_classifier.pkl` and `models/screenshot_classifier.pkl`
 were trained on a different, now-removed dataset and are kept only as a

@@ -1,0 +1,85 @@
+# Alert thresholds. Tune these to your server's actual capacity, don't treat
+# them as gospel — a `for:` window is set on every rule so a brief spike (e.g.
+# one torch build) doesn't page you; only SUSTAINED problems fire.
+
+groups:
+  - name: host
+    rules:
+      - alert: DiskSpaceHigh
+        expr: |
+          100 - ((node_filesystem_avail_bytes{mountpoint="/",fstype!="tmpfs"} * 100)
+                 / node_filesystem_size_bytes{mountpoint="/",fstype!="tmpfs"}) > 80
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "Disk usage above 80% on {{ $labels.instance }}"
+          description: "Root filesystem is {{ $value | printf \"%.1f\" }}% full. Docker image/build-cache buildup (repeated torch builds) is the usual cause on this server — run `docker system prune -af`."
+
+      - alert: DiskSpaceCritical
+        expr: |
+          100 - ((node_filesystem_avail_bytes{mountpoint="/",fstype!="tmpfs"} * 100)
+                 / node_filesystem_size_bytes{mountpoint="/",fstype!="tmpfs"}) > 90
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: "Disk usage above 90% on {{ $labels.instance }}"
+          description: "Root filesystem is {{ $value | printf \"%.1f\" }}% full. Act now — new deploys/builds will start failing."
+
+      - alert: HostMemoryHigh
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "Host memory above 90% on {{ $labels.instance }}"
+          description: "Available memory is low. The full (torch) app needs ~2GB alone; check for a runaway build or too many concurrent scans."
+
+      - alert: HostCPUSustainedHigh
+        expr: |
+          100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "Host CPU above 90% for 10m on {{ $labels.instance }}"
+          description: "Sustained high CPU — likely either a build running or the detector saturated with scans."
+
+  - name: containers
+    rules:
+      - alert: ContainerDown
+        expr: up == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: "Scrape target {{ $labels.job }} on {{ $labels.instance }} is down"
+          description: "Prometheus can't reach this target — the exporter or the container it monitors may have crashed or the host may be asleep (check the lid/suspend settings)."
+
+      - alert: ContainerNearMemoryLimit
+        expr: |
+          (container_memory_usage_bytes{name!=""} / container_spec_memory_limit_bytes{name!="", container_spec_memory_limit_bytes>0}) > 0.9
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Container {{ $labels.name }} is above 90% of its memory limit"
+          description: "This container will be OOM-killed soon if usage keeps climbing. Raise its Coolify memory limit or investigate a leak."
+
+  # --- The following two rules only fire once you've wired up the app's own
+  # /metrics target (see prometheus.yml + MONITORING.md). Until then they sit
+  # inactive (the metric simply won't exist, so the expression evaluates to no
+  # data — harmless).
+  - name: app
+    rules:
+      - alert: TooManyUsersBeingTurnedAway
+        expr: increase(detect_requests_total{outcome="busy"}[5m]) > 5
+        for: 0m
+        labels: {severity: warning}
+        annotations:
+          summary: "The detector is turning users away (server busy / overloaded)"
+          description: "{{ $value | printf \"%.0f\" }} requests hit the 503 overload guard in the last 5 minutes. Consider raising MAX_CONCURRENT/MAX_QUEUE (if the box can take it) or this is real demand outgrowing the server."
+
+      - alert: DetectorAtCapacitySustained
+        expr: detect_inflight >= detect_inflight_capacity
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "The detector has been at max concurrency for 5+ minutes"
+          description: "Every scan slot plus the queue has stayed full — a sustained traffic level, not a brief spike."
