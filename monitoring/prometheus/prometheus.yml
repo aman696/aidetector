@@ -23,17 +23,24 @@ scrape_configs:
     static_configs:
       - targets: ["127.0.0.1:8085"]
 
-  # --- OPTIONAL: the app's own /metrics (inflight requests / "too many users",
-  # scan latency, contribution counts) — see MONITORING.md "Wiring up the app
-  # target" for how to find the right <address:port> on YOUR server. Uncomment
-  # and fill in once you've confirmed it with the discovery recipe there.
-  #
+  # --- The app's own /metrics (inflight requests / "too many users", scan
+  # latency, contribution counts). Scraped over the PUBLIC tunnel URL — simplest
+  # approach that survives redeploys (the domain is stable, unlike container
+  # IPs/names). /metrics is open unless METRICS_TOKEN is set; if you set a token,
+  # add it here as `authorization: {credentials: "<token>"}` under the job.
+  # NOTE: near-zero until real traffic — scan a few images yourself to see it move.
+  - job_name: "humanorai-staging"
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["staging.humanorai.online"]
+        labels: {app: "staging"}
+
+  # Prod is served from the master-branch app. It's currently stopped, so this
+  # target will show as DOWN until you re-open prod — uncomment then.
   # - job_name: "humanorai-prod"
+  #   scheme: https
   #   metrics_path: /metrics
   #   static_configs:
-  #     - targets: ["<prod-container-name-or-address>:7860"]
-  #
-  # - job_name: "humanorai-staging"
-  #   metrics_path: /metrics
-  #   static_configs:
-  #     - targets: ["<staging-container-name-or-address>:7860"]
+  #     - targets: ["humanorai.online"]
+  #       labels: {app: "prod"}
