@@ -56,13 +56,10 @@ DEBUG = os.getenv("DEBUG", "0") == "1"
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", str(10 * 1024 * 1024)))  # 10 MB
 MAX_PIXELS = int(os.getenv("MAX_PIXELS", str(50_000_000)))             # 50 MP
 MAX_DIMENSION = int(os.getenv("MAX_DIMENSION", "12000"))              # per side
-# TEMP (LOAD TEST): defaults relaxed so a load test measures the HARDWARE, not
-# these guards. Revert to MAX_CONCURRENT=2 / MAX_QUEUE=10 / RATE_LIMIT=20/minute
-# before real/public use. (Env vars still override these if you ever set them.)
-MAX_CONCURRENT = int(os.getenv("MAX_CONCURRENT", "6"))               # heavy scans at once
-MAX_QUEUE = int(os.getenv("MAX_QUEUE", "100"))                       # extra requests allowed to wait
+MAX_CONCURRENT = int(os.getenv("MAX_CONCURRENT", "2"))               # heavy scans at once
+MAX_QUEUE = int(os.getenv("MAX_QUEUE", "10"))                        # extra requests allowed to wait
 SCAN_TIMEOUT = float(os.getenv("SCAN_TIMEOUT", "60"))               # seconds per scan before giving up
-RATE_LIMIT = os.getenv("RATE_LIMIT", "100000/minute")                # per IP, /api/detect
+RATE_LIMIT = os.getenv("RATE_LIMIT", "20/minute")                    # per IP, /api/detect
 ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "*").split(",") if h.strip()]
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
