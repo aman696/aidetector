@@ -74,6 +74,8 @@ CONTRIB_ENABLED = os.getenv("CONTRIB_ENABLED", "1") == "1"
 CONTRIB_DIR = os.getenv("CONTRIB_DIR", "contributions")
 CONTRIB_RATE_LIMIT = os.getenv("CONTRIB_RATE_LIMIT", "30/minute")
 CONTRIB_LABELS = {"real", "ai", "unsure"}
+# Optional user judgment of the model's verdict, attached to a contribution.
+CONTRIB_FEEDBACK = {"correct", "wrong"}
 
 # --- Metrics (see MONITORING.md) --------------------------------------------- #
 # /metrics is meant for PRIVATE scraping only (Tailscale/localhost) — never give
@@ -189,6 +191,10 @@ METRIC_FALLBACK = Counter(
     "Scans served by the classical-only fallback (torch unavailable).")
 METRIC_CONTRIBUTIONS = Counter(
     "contributions_total", "Opt-in image contributions by label.", ["label"])
+METRIC_VERDICT_FEEDBACK = Counter(
+    "verdict_feedback_total",
+    "User correct/wrong feedback on the model verdict, when contributed.",
+    ["feedback"])  # correct | wrong
 
 # --------------------------------------------------------------------------- #
 # Model
@@ -343,11 +349,13 @@ async def detect_image(request: Request, file: UploadFile, mode: str = Form("nor
 # Contribution / self-labeling endpoint (opt-in dataset growth)
 # --------------------------------------------------------------------------- #
 def _store_contribution(contents: bytes, label: str, ext: str,
-                        model_p: "float | None") -> dict:
+                        model_p: "float | None",
+                        verdict_feedback: "str | None") -> dict:
     """Persist a donated image under contributions/<label>/<sha256><ext> and
     append a JSONL metadata record. Content-addressed by sha256, so identical
     resubmissions collapse to one file (dedup) while every event is still
-    logged. Returns the record."""
+    logged. `verdict_feedback` is the user's optional correct/wrong judgment of
+    the model's verdict (None if not given). Returns the record."""
     label_dir = os.path.join(CONTRIB_DIR, label)
     os.makedirs(label_dir, exist_ok=True)
     digest = hashlib.sha256(contents).hexdigest()
@@ -363,6 +371,7 @@ def _store_contribution(contents: bytes, label: str, ext: str,
         "bytes": len(contents),
         "ts": datetime.now(timezone.utc).isoformat(),
         "model_probability_ai": model_p,   # user label vs model score -> hard cases
+        "verdict_feedback": verdict_feedback,  # "correct" | "wrong" | None
         "new_file": is_new,
     }
     with open(os.path.join(CONTRIB_DIR, "contributions.jsonl"), "a") as f:
@@ -374,7 +383,8 @@ def _store_contribution(contents: bytes, label: str, ext: str,
 @limiter.limit(CONTRIB_RATE_LIMIT)
 async def contribute_image(request: Request, file: UploadFile,
                            label: str = Form(...),
-                           model_probability_ai: str = Form("")):
+                           model_probability_ai: str = Form(""),
+                           verdict_feedback: str = Form("")):
     """Opt-in: store a donated image plus the user's own real/ai/unsure label.
     Reuses the same validation as /api/detect. Unlike /api/detect, this DOES
     persist the image (by design), so it is only ever called from an explicit
@@ -385,6 +395,10 @@ async def contribute_image(request: Request, file: UploadFile,
     label = (label or "").strip().lower()
     if label not in CONTRIB_LABELS:
         raise HTTPException(400, "Label must be one of: real, ai, unsure.")
+
+    feedback = (verdict_feedback or "").strip().lower() or None
+    if feedback is not None and feedback not in CONTRIB_FEEDBACK:
+        raise HTTPException(400, "verdict_feedback must be 'correct' or 'wrong'.")
 
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
@@ -406,13 +420,17 @@ async def contribute_image(request: Request, file: UploadFile,
         model_p = None
 
     try:
-        rec = await run_in_threadpool(_store_contribution, contents, label, ext, model_p)
+        rec = await run_in_threadpool(
+            _store_contribution, contents, label, ext, model_p, feedback)
     except Exception:
         logger.exception("Contribution store failed")
         raise HTTPException(500, "Could not save your contribution. Please try again.")
 
     METRIC_CONTRIBUTIONS.labels(label=label).inc()
-    return {"status": "ok", "id": rec["id"], "stored_new": rec["new_file"], "label": label}
+    if feedback is not None:
+        METRIC_VERDICT_FEEDBACK.labels(feedback=feedback).inc()
+    return {"status": "ok", "id": rec["id"], "stored_new": rec["new_file"],
+            "label": label, "verdict_feedback": feedback}
 
 
 # --------------------------------------------------------------------------- #

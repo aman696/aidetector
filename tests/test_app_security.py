@@ -90,6 +90,50 @@ class TestOverloadGuard:
         assert r.status_code == 503
 
 
+def _png_bytes(size=(8, 8)) -> bytes:
+    import io
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new("RGB", size, (123, 200, 90)).save(buf, "PNG")
+    return buf.getvalue()
+
+
+class TestContribution:
+    """The opt-in donate path, focused on the verdict correct/wrong feedback
+    field. Uses a temp CONTRIB_DIR so nothing touches the real contributions/."""
+
+    def _post(self, monkeypatch, tmp_path, ip, **form):
+        monkeypatch.setattr(appmod, "CONTRIB_DIR", str(tmp_path))
+        return client.post(
+            "/api/contribute",
+            data=form,
+            files={"file": ("x.png", _png_bytes(), "image/png")},
+            headers={"X-Forwarded-For": ip})
+
+    def _records(self, tmp_path):
+        import json
+        path = tmp_path / "contributions.jsonl"
+        return [json.loads(ln) for ln in path.read_text().splitlines() if ln.strip()]
+
+    def test_feedback_stored_when_valid(self, monkeypatch, tmp_path):
+        r = self._post(monkeypatch, tmp_path, "203.0.113.20",
+                       label="ai", verdict_feedback="wrong")
+        assert r.status_code == 200, r.text
+        assert r.json()["verdict_feedback"] == "wrong"
+        assert self._records(tmp_path)[-1]["verdict_feedback"] == "wrong"
+
+    def test_bad_feedback_rejected(self, monkeypatch, tmp_path):
+        r = self._post(monkeypatch, tmp_path, "203.0.113.21",
+                       label="ai", verdict_feedback="maybe")
+        assert r.status_code == 400
+
+    def test_feedback_optional(self, monkeypatch, tmp_path):
+        r = self._post(monkeypatch, tmp_path, "203.0.113.22", label="real")
+        assert r.status_code == 200, r.text
+        assert r.json()["verdict_feedback"] is None
+        assert self._records(tmp_path)[-1]["verdict_feedback"] is None
+
+
 class TestMetrics:
     def test_metrics_open_by_default(self, monkeypatch):
         monkeypatch.setattr(appmod, "METRICS_TOKEN", "")
