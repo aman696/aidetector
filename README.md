@@ -106,9 +106,19 @@ cd aidetector
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# Optional: GPU acceleration for training (cuML)
-pip install cupy-cuda12x cuml-cu12 --extra-index-url=https://pypi.nvidia.com
+# CPU training works without RAPIDS. Optional GPU setup is not provisioned here;
+# choose a cuML build compatible with your CUDA environment before using --gpu.
 ```
+
+For a smaller laptop installation using the classical fallback, replace the
+dependency-install step above with:
+
+```bash
+python -m pip install -r requirements-runtime.txt
+```
+
+This omits DINOv2; the fallback has different benchmark results (see above).
+Use `requirements.txt` for full hybrid inference, training, and tests.
 
 ---
 

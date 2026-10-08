@@ -48,8 +48,8 @@ Owner-collected and benchmark-sourced text-to-image outputs. Per-family counts
 | | | mystic | 63 | | |
 
 > Provenance / license TODO (owner): the per-family origin and redistribution
-> license of the `data/mixed/` families must be confirmed before any public
-> dataset release. Several family names correspond to public generation
+> license of the `data/mixed/` families remain unresolved in this card, despite
+> the dataset being published at the access link below. Several family names correspond to public generation
 > benchmarks; others are owner-generated. Do not redistribute these images until
 > each family's source and license are recorded here. This is a known gap and a
 > blocker for full external reproducibility.
@@ -57,7 +57,9 @@ Owner-collected and benchmark-sourced text-to-image outputs. Per-family counts
 ### Derived (augmented) records: 23,577
 
 Generated from the base images to simulate real-world distribution conditions.
-Built by `scripts/build_derived.py` / `scripts/capture_screenshots.py`.
+The original build used `scripts/build_derived.py` and
+`scripts/capture_screenshots.py`, which are absent from this public checkout.
+Restore the published derived data and caches to reproduce the recorded run.
 
 | Condition | Count | What it is |
 |---|---|---|
@@ -68,9 +70,10 @@ Built by `scripts/build_derived.py` / `scripts/capture_screenshots.py`.
 | `chain_ss_tg` | 2,723 | screenshot then Telegram (chained) |
 | `chain_fb_x` | 2,665 | Facebook then X (chained) |
 
-> The exact recompression quality factors and the screenshot capture method are
-> defined in `scripts/build_derived.py` and `scripts/capture_screenshots.py`;
-> document the concrete parameters here when releasing the data.
+> `src/channels.py` supplies the included recompression transforms. The original
+> capture/orchestration helpers are not shipped here, so rebuilding every derived
+> variant from scratch requires those helpers and their recorded configuration.
+> Dataset access does not resolve the outstanding per-family provenance terms.
 
 ## Folder layout (on disk)
 

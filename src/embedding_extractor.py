@@ -18,8 +18,8 @@ Math notes that matter for correctness:
       would scale the effective sigma by 1/std (~1/0.225) per channel and
       break the "2 and 6 gray levels out of 255" interpretation.
     - The noise is seeded per image (md5 of the crop pixels, or a caller-
-      supplied seed) so the cached drift features are reproducible — unlike
-      the legacy classical drift in classifier.py, which is unseeded.
+      supplied seed) so the cached drift features are reproducible. The
+      classical drift in classifier.py is also seeded from image pixels.
     - Cosine similarity is computed in float64 even though embeddings are
       produced in fp16 on GPU, to avoid normalization precision loss.
 """
@@ -61,8 +61,8 @@ def _load_rgb(image: ImageInput) -> np.ndarray:
     Load an image as an HxWx3 uint8 RGB array.
 
     RGBA / palette / grayscale inputs are converted to RGB; transparency is
-    composited onto white, matching scripts/build_derived.py so the embedder
-    and the derived-data pipeline agree on what a transparent pixel "is".
+    composited onto white, matching the original derived-data pipeline (its
+    build helper is absent from this public checkout).
     """
     if isinstance(image, np.ndarray):
         arr = image

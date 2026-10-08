@@ -2,10 +2,11 @@
 
 Following the structure of Mitchell et al. 2019, "Model Cards for Model
 Reporting." All quantitative values are sourced from the reproducibility record
-[experiment_v1.json](experiment_v1.json) and the held-out evaluation report; no
-numbers are hand-entered. Regenerate the source numbers with
-`python -m src.evaluate_unified` and refresh the record with
-`python -m scripts.record_experiment`.
+[experiment_v1.json](experiment_v1.json) and the held-out evaluation report.
+Regenerate evaluation with
+`python -m src.evaluate_unified` after restoring the recorded dataset. The
+original `scripts.record_experiment` helper is absent from this public checkout;
+the committed record describes the shipped experiment, not a new run.
 
 ## Model Details
 
@@ -99,57 +100,38 @@ Evaluation is stratified along the factors that move performance:
 
 ## Quantitative Analyses
 
-**Overall (test split, n = 6,414):**
+Current headline metrics are in [README.md](README.md). Full condition,
+generator-family, resolution, and gate analyses are in [RESEARCH.md](RESEARCH.md).
+The source measurements are [the June 15 evaluation](reports/eval_v2_20260615.json)
+and [experiment_v1.json](experiment_v1.json); they are not independently copied
+into another model-card table.
 
-| Model | Accuracy | Precision | Recall | F1 | ROC-AUC | PR-AUC | Pd@5%FAR |
-|---|---|---|---|---|---|---|---|
-| Unified (855) | 0.864 | 0.864 | 0.866 | 0.865 | 0.940 | 0.940 | 0.715 |
-| Classical-only (85) | 0.781 | 0.745 | 0.857 | 0.797 | 0.863 | 0.856 | 0.436 |
+**Three acceptance gates remain unmet:** clean ROC-AUC, clean accuracy, and
+held-out-generator detection at the 5% false-alarm reference threshold. Their
+measured values and targets are recorded in the evaluation and research document.
 
-The hybrid is well-balanced (precision ≈ recall). The classical-only fallback is
-weaker and over-flags toward AI; the embedding closes most of that gap.
-
-**Acceptance gates — three are currently unmet.** The project defines absolute
-target gates (in `src/evaluate_unified.py`). The model meets the social-media,
-chain, and screenshot gates, but as of the 2026-06-15 run it does **not** meet:
-clean AUC (0.947 vs 0.95 target), clean accuracy (0.867 vs 0.90), and held-out
-generator Pd@5%FAR (0.513 vs 0.60). The clean misses are narrow; the held-out
-Pd shortfall reflects the rectified-flow / unseen-architecture weakness below.
-Full gate table and reasoning: [RESEARCH.md](RESEARCH.md) and
-`reports/eval_v2_<date>.md`. These are reported, not worked around.
-
-A note on precision: the 6,414 test rows derive from ~802 base images (each in
-up to eight conditions), so the rows are correlated and the effective sample is
-nearer 802. Point metrics should be read with that in mind; base-image-level
-confidence intervals are not yet computed.
-
-**By distribution condition (unified ROC-AUC):** clean 0.947, screenshot 0.946,
-X 0.945, Telegram 0.939, Facebook 0.930, chain (ss→tg) 0.935, chain (fb→x) 0.930.
-Performance holds up across social-media recompression.
-
-**By generator architecture (real-anchored ROC-AUC; see RESEARCH.md):** U-Net
-diffusion 0.951, pixel diffusion 0.985, autoregressive 0.940, undisclosed 0.922,
-rectified-flow/DiT 0.894 (0.910 on seen flow; held-out Flux 0.811). Flow /
-flux and the (untested) continuous-token AR are the weak spots.
-
-**By resolution (unified ROC-AUC):** `<400` 0.974, `400-800` 0.926, `>800` 0.947.
-
-**Leakage / shortcut checks:** EXIF-permutation AUC drop ≈ 0.000 (not leaning on
-metadata); the RIGID drift was fixed to remove a file-format confound.
+The 6,414 test rows derive from 802 base images, so the rows are correlated;
+base-image-level confidence intervals are not yet computed. The separate
+holdout contains only AI images, so standalone holdout ROC-AUC is undefined;
+real-anchored architecture comparisons use a separate reference of real scores.
+The 5%-FAR statistic is evaluated on photographic real images and is not a
+universal deployment false-positive guarantee or the inference decision rule.
 
 ## Ethical Considerations
 
 - **False positives harm real creators.** A real photo flagged as AI can damage
-  reputation; the tool is tuned and reported at a fixed low false-alarm rate
-  (5% FAR) for this reason, and outputs are advisory only.
+  reputation; the evaluation reports detection at a 5% false-alarm reference
+  threshold for this reason. Inference chooses the highest calibrated class
+  probability; it does not apply that evaluation threshold. Outputs are advisory.
 - **Adversarial fragility.** Detection degrades under heavy recompression, low
   resolution, and novel architectures; a motivated actor can evade it. Do not
   treat a "real" verdict as a guarantee of authenticity.
 - **Distribution bias.** Real images are COCO/OpenFake photographs; performance
   on out-of-distribution real content (art, screenshots of documents, scientific
   imagery) is not characterized.
-- **Privacy.** The live service deletes uploaded images immediately after
-  scanning and never stores or trains on them (see SECURITY.md).
+- **Privacy.** `/api/detect` writes a temporary scan file and removes it in
+  `finally` after the request. This checkout has no contribution or persistent
+  upload endpoint (see SECURITY.md).
 
 ## Caveats and Limitations
 

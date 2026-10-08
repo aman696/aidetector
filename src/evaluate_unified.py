@@ -13,7 +13,7 @@ must not be worse than classical-only anywhere, else the embedding
 integration has a bug). The old v1 models are NOT run here: they were trained
 on 79-dim features, incompatible with the current 85-dim classical vector, so
 a same-rows comparison is not meaningful (they are a reference baseline only,
-per CLAUDE.md).
+per WORKFLOW.md).
 
 Run: `python -m src.evaluate_unified`. Writes reports/eval_v2_<date>.{json,md}.
 """
@@ -114,7 +114,7 @@ def group_report(y: np.ndarray, scores: np.ndarray,
 
 def check_gates(results: dict) -> List[dict]:
     """
-    Absolute acceptance gates (CLAUDE.md / plan). Each returns
+    Absolute acceptance gates (current values below; context in RESEARCH.md). Each returns
     {name, target, value, passed}. Missing inputs -> passed None (not run).
     """
     gates: List[dict] = []

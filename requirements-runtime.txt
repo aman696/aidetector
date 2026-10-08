@@ -1,7 +1,6 @@
-# Runtime dependencies for the web app (app.py). Trimmed from requirements.txt:
-# no matplotlib/pytest/datasets (not needed to serve). torch + timm are NOT here
-# — they are installed conditionally in the Dockerfile (CPU build, via build arg),
-# because they are large and only needed for the full DINOv2 model.
+# Dependencies for running the local browser app with classical-only inference.
+# Install in a virtual environment: python -m pip install -r requirements-runtime.txt
+# Training and tests use requirements.txt. Add torch and timm for full DINOv2 inference.
 #
 # Scientific stack is pinned to the versions the v2 model was trained with, so the
 # pickled model unpickles cleanly (scikit-learn pickles are version-sensitive).

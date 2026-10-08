@@ -12,8 +12,8 @@ htmlcov/
 scripts/
 # Runtime output
 logs/
-# Reports stay local by default, but track the two lightweight, public
-# reproducibility reports the docs reference (no secrets/paths; <=55 KB).
+# Reports stay local by default; retain the public evaluation and family-analysis
+# report patterns below. Existing committed reports remain tracked.
 # (Use reports/* not reports/ so the negations below can re-include files.)
 reports/*
 !reports/eval_v2_*.md
@@ -40,6 +40,6 @@ V2_PROGRESS.md
 .vscode/
 .claude/
 
-# secrets (Cloudflare tunnel token)
+# Local environment secrets
 .env
 SELFHOST_LEARNING.md

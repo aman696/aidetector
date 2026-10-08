@@ -94,9 +94,9 @@ def apply_chain(img: np.ndarray,
     Applies a sequence of platform emulations, e.g. ['facebook', 'x'],
     decoding between hops exactly as a re-upload would.
 
-    Screenshot hops are not computed here (they need a real browser, see
-    scripts/capture_screenshots.py); chains containing one are assembled by
-    scripts/build_derived.py from captured files.
+    Screenshot hops are not computed here: they require browser capture.
+    The original capture/build orchestration helpers are not shipped in this
+    public checkout; screenshot chains must be restored from the dataset.
     """
     params: List[Dict] = []
     data, ext = None, None

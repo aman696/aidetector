@@ -98,7 +98,9 @@ weakness, not a solved problem.
 > changed). Prior run: `reports/family_analysis_20260613.{md,json}`.
 
 Detailed artifact: `reports/family_analysis_20260615.{md,json}`.
-Run: `python -m scripts.analyze_families`. This analysis re-scores the cached
+The original `scripts.analyze_families` helper is absent from this public
+checkout; the committed family-analysis reports remain available. The analysis
+re-scored the cached
 test/holdout matrices with the shipped v2 models and groups the 32 generator
 families by *generation architecture* (U-Net diffusion / pixel diffusion /
 rectified-flow-DiT / autoregressive / undisclosed), correcting two confounds in
@@ -176,9 +178,10 @@ blind spots" framing:
 > Refreshed 2026-06-15 on the post-audit-fix retrain (prior run 2026-06-13). The
 > generalization and artifact conclusions are unchanged; numbers updated below.
 
-Artifacts: `reports/ar_experiments_20260615.{md,json}`,
-`reports/ar_artifact_probe_20260615.md`. Run: `python -m scripts.ar_experiments`,
-`python -m scripts.ar_artifact_probe`.
+This section preserves the original June research narrative. Its detailed
+`ar_experiments` and `ar_artifact_probe` reports and helper scripts are absent
+from this public checkout. The retained narrative is not a substitute for those
+artifacts or a reproducible command available here.
 
 Motivation: every AR family in the data (gpt, gpt_image_1, gemini, aurora, grok)
 was *seen* in training, so the strong AR numbers could have been memorization.
@@ -336,14 +339,17 @@ Built a dataset of 10,000 images from Facebook, Instagram, LinkedIn, and X (nati
 **Core Idea:** Real images are more robust to tiny noise perturbations than AI-generated images in DINOv2 feature space.
 
 **What we implemented (without DINOv2):**
-1. Add Gaussian noise (σ=2) to image → save to temp file
+1. Add deterministic Gaussian noise (σ=2), seeded from decoded image pixels, in memory
 2. Re-run FFT, Noise, Gradient, DCT, PatchCraft, Eigen analyzers on perturbed image
 3. Return `|original_features − perturbed_features|` for 15 key features
 4. These 15 "drift" values are 15 of the 85 classical features
 
 Real images: low drift (features are stable under noise). AI images: somewhat higher drift. Contributes a training-free generalization signal.
 
-**What we did NOT implement:** The DINOv2/ViT backbone (requires ~300MB model, out of scope for classical pipeline).
+**Current v2 hybrid path:** `src/embedding_extractor.py` additionally implements
+frozen DINOv2 embeddings and two embedding-space drift measurements. The
+classical approximation above remains part of the 85-feature fallback; it does
+not describe the whole v2 detector.
 
 ---
 
@@ -357,10 +363,10 @@ Wang et al. showed that adding JPEG-compressed and Gaussian-blurred training ima
 
 ### 9. Dedicated Screenshot Classifier — March 2026
 **Based on:** Ng et al. (Imperial College) recaptured image forensics + "Any-Resolution AI Detection by Spectral Learning" (arXiv Nov 2024)
-**Status: IMPLEMENTED** — `src/screenshot_classifier.py`, `models/screenshot_classifier.pkl`
+**Status: RETIRED V1 REFERENCE** — `src/screenshot_classifier.py`, `models/screenshot_classifier.pkl`
 
 **Why this mattered (v1 history):**
-Screenshots go through a display pipeline (monitor gamma, panel quantization, screenshot PNG encoding) that erases EXIF, camera sensor noise, and the JPEG grid. In v1 this justified a separate screenshot SVM. In v2 these 15 signals are part of the unified model's 85 classical features and screenshots are trained on directly, so no separate model or routing is used.
+Screenshots go through a display pipeline (monitor gamma, panel quantization, screenshot PNG encoding) that erases EXIF, camera sensor noise, and the JPEG grid. In v1 this justified a separate screenshot SVM. In v2 the main pipeline uses 10 screenshot-forensic features within its 85 classical dimensions; it does not copy the specialist's 15-feature vector. Screenshots are trained on directly, so no separate model or routing is used.
 
 **Feature vector (15 features):**
 
@@ -381,10 +387,10 @@ Screenshots go through a display pipeline (monitor gamma, panel quantization, sc
 
 **Shortcoming — Instagram Reel screenshots:** Video-frame captures (from Instagram, TikTok, YouTube) have smooth H.264/H.265 compressed content — low wavelet energy, unimodal histogram, low GLCM contrast — all identical to AI image screenshots. This remains a hard unsolved case.
 
-> **Note (v2):** the standalone screenshot classifier is retired. These 15
-> screenshot-forensic signals now live inside the unified model's 85 classical
-> features; screenshots are trained on directly rather than routed to a separate
-> model.
+> **Note (v2):** the standalone 15-feature screenshot classifier is retired.
+> The unified model includes 10 screenshot-forensic features in its 85 classical
+> dimensions; its current evaluation is reported above. The results in this
+> historical subsection are not current v2 benchmark results.
 
 ---
 
@@ -392,8 +398,8 @@ Screenshots go through a display pipeline (monitor gamma, panel quantization, sc
 
 | Failure | Confirmed | Root Cause | Fix Status |
 |---|---|---|---|
-| Screenshot of real content → AI (80%+) with main SVM | Confirmed | No EXIF + no camera noise + no JPEG grid | Fixed — dedicated screenshot SVM |
-| AI screenshot → Real with main SVM | Confirmed | Display pipeline adds real-camera-like noise | Fixed — dedicated screenshot SVM |
+| Screenshot of real content → AI (80%+) with main SVM | Confirmed | No EXIF + no camera noise + no JPEG grid | V1 specialist mitigation; current v2 trains screenshot variants directly |
+| AI screenshot → Real with main SVM | Confirmed | Display pipeline adds real-camera-like noise | V1 specialist mitigation; current v2 trains screenshot variants directly |
 | Instagram Reel screenshot → AI (both models) | Confirmed | H.264 video codec = smooth frames, no sensor noise, no bimodal histogram | Open — 3rd/4th category problem |
 | Low-res AI (~256px) → Real/Uncertain | Confirmed | PatchCraft needs ≥36 patches; multi-scale collapses | Partially mitigated by resolution guard |
 | Social media screenshot of real photo → AI | Confirmed | EXIF stripped, display-rendered | Partially mitigated by JPEG augmentation |
@@ -413,16 +419,27 @@ Screenshots go through a display pipeline (monitor gamma, panel quantization, sc
 |---|---|---|
 | 1 | ITW-SM training augmentation (Q=70, Q=80, 0.75× resize) | `augment_dataset_with_jpeg()` |
 | 2 | Resolution guard for PatchCraft + noise multi-scale | Guards added |
-| 3 | Screenshot pre-detection + web UI toggle | `screenshot_detector.py` + web toggle |
+| 3 | Screenshot pre-detection | Informational warning only in v2; mode toggle retired |
 | 4 | RIGID-inspired feature drift (54→69 features) | `_compute_drift_features()` |
 | 5 | GPU-accelerated SVM training | cuML RTX 4060 + ProcessPoolExecutor |
 | 6 | Screenshot forensics features for main SVM (10 features) | `screenshot_image_analyzer.py` |
-| 7 | **Dedicated screenshot SVM** | `src/screenshot_classifier.py` |
+| 7 | **Dedicated screenshot SVM** | Retired v1 reference in `src/screenshot_classifier.py` |
 | 8 | **Playwright real screenshot generator** | `scripts/generate_real_screenshots.py` |
 | 9 | **Social media dataset integration** (252 AI + 109 real) | Integrated |
 | 10 | **Analyzer calibration fixes** (FFT slope, DCT kurtosis, eigenvalue capping) | Fixed |
 
-### Still Planned
+### Current research follow-ups
+
+The current unresolved questions are generator-family generalization,
+rectified-flow weaknesses, continuous-token AR evaluation, non-photographic
+real-image false positives, and base-image-level confidence intervals. See the
+current evaluation and model card; these do not require a new screenshot mode.
+
+The checklist below is retained as historical research planning context. Its
+small-data training targets and screenshot-SVM calibration tasks do not describe
+the current v2 implementation. Server-hosting tasks have been removed.
+
+### Historical backlog
 
 #### Data
 - [ ] Grow AI desktop screenshot training data — current sources unknown; need to assess
@@ -439,11 +456,6 @@ Screenshots go through a display pipeline (monitor gamma, panel quantization, sc
 - [ ] Progress bar / step indicator during analysis (currently just spinner)
 - [ ] Side-by-side comparison mode (upload two images)
 - [ ] Export results as JSON or PDF report
-
-#### Deployment
-- [ ] Docker container for easy homelab deployment
-- [ ] Rate limiting (if exposed to internet)
-- [ ] HTTPS via nginx reverse proxy
 
 ---
 
@@ -462,9 +474,9 @@ Screenshots go through a display pipeline (monitor gamma, panel quantization, sc
 
 1. **Our FFT targets GAN artifacts, not diffusion.** Durall 2020 was designed for transposed-convolution checkerboard patterns. Diffusion models don't produce those. But the VAE bottleneck in latent diffusion models creates a high-frequency attenuation signature — which our screenshot SVM's `fft_radial_slope` feature captures.
 
-2. **Metadata is the strongest signal but also the most fragile.** Social media strips it. Tools like `exiftool` can inject fake cameras. Yet it still contributes heavily to the main SVM.
+2. **Current evidence does not show reliance on metadata.** The v2 EXIF-permutation check reports essentially no AUC drop. EXIF can be stripped or injected, so metadata should not be presented as authoritative evidence.
 
-3. **PatchCraft generalizes across 17 generator types** — the best-generalizing classical feature we have. The texture-synthesis limitation appears to be fundamental to how all current generators work.
+3. **Distinguish paper results from project results.** The 17-generator evaluation belongs to the PatchCraft paper, not this repository's simplified texture features. Project performance must be read from its dated evaluation reports.
 
 4. **Training data composition > model complexity** (per ITW-SM 2025). We don't need a fancier SVM — we need training images that reflect the actual distribution we're being tested on.
 
@@ -472,38 +484,16 @@ Screenshots go through a display pipeline (monitor gamma, panel quantization, sc
 
 6. **RIGID drift without DINOv2 still adds value.** Even our classical feature-drift approximation (σ=2 perturbation → |Δfeatures|) adds 15 training-free generalization features. The principle works independently of the backbone.
 
-7. **Video-frame captures are genuinely unsolvable with 2-class binary classification.** Instagram Reels, TikTok, YouTube screenshots are neither "camera photo" nor "AI image" nor "desktop UI screenshot" — they're a fourth category with video-codec textures. This is an open research problem.
+7. **Video-frame captures remain outside the supported scope.** Instagram Reels, TikTok, and YouTube captures introduce video-codec textures that the current detector does not handle reliably. The repository does not establish that binary classification can never solve this problem.
 
 ---
 
-## Performance Summary (current dataset)
+## Performance source records
 
-Held-out test split (6,414 rows: 3,216 AI / 3,198 real), base-level disjoint from
-training. Source: `reports/eval_v2_<date>.json`, recorded in `experiment_v1.json`.
-Per-condition / per-architecture / per-resolution detail is in
-[MODEL_CARD.md](MODEL_CARD.md) and the family-analysis section above.
-
-### Unified model (855-dim)
-| Metric | Value |
-|---|---|
-| Accuracy | 0.864 |
-| Precision / Recall / F1 | 0.864 / 0.866 / 0.865 |
-| ROC-AUC / PR-AUC | 0.940 / 0.940 |
-| Pd@5%FAR | 0.715 |
-| Train rows | 16,593 |
-| Features | 855 (85 classical + 768 DINOv2 + 2 drift) |
-
-### Classical-only fallback (85-dim)
-| Metric | Value |
-|---|---|
-| Accuracy | 0.781 |
-| ROC-AUC / PR-AUC | 0.863 / 0.856 |
-| Pd@5%FAR | 0.436 |
-| Features | 85 |
-
-The hybrid is well-balanced (precision ~ recall); the classical-only fallback is
-weaker and over-flags toward AI. Real-image false positives are the binding
-operating constraint, which is why Pd@5%FAR is reported.
+Current metrics and gate status are reported in the held-out evaluation section
+near the beginning of this document. The machine-readable source is
+`reports/eval_v2_20260615.json`, recorded in `experiment_v1.json`; README.md
+contains the headline summary. This section does not repeat another metric table.
 
 ### Earlier v1 models (reference baseline only)
 The `models/svm_classifier.pkl` (79-feature) and `models/screenshot_classifier.pkl`

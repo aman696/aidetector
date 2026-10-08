@@ -20,6 +20,33 @@ reference baseline. They are not loaded by `main.py` or `app.py`.
 
 ---
 
+## Public-checkout scope
+
+This public checkout has 89 tracked files, including six legacy collection
+scripts. Existing ignore rules are preserved; no files were untracked or ignored
+as a cleanup shortcut. Models and committed evaluation/family-analysis reports
+are retained unchanged.
+
+The dataset, private paper/code notes, and original v2 research helpers are not
+included. In particular, the build/capture, architecture/AR analysis, external
+fetch/evaluation, and experiment-recording scripts referenced by the original
+workflow are absent. The sections below distinguish those historical steps
+from commands that this checkout actually supplies. Restore the recorded data
+and manifests from DATASET.md before training or evaluation.
+
+`requirements.txt` provides the full development dependencies. Optional tools:
+
+- Legacy browser screenshots: `python -m pip install playwright`, followed by
+  `python -m playwright install chromium`.
+- Legacy Firefox collection: `python -m pip install selenium webdriver-manager`.
+- Load testing: `python -m pip install locust`.
+
+Legacy helpers write to earlier layouts such as `data/ai_generated`, `data/test`,
+and `data/socialmedia*_ss`; they do not recreate the v2 benchmark. In particular,
+`process_local_data.py` clears its old target directories before ingesting data.
+Its video-frame extraction is dataset preprocessing, not a supported video
+inference capability of the detector. Do not run it to restore the current data.
+
 ## Quick Reference
 
 ```bash
@@ -87,22 +114,21 @@ informational warning — it does not route to a separate model.
 
 | Group | Module | Count |
 |---|---|---|
-| FFT power spectrum + spectral slope | `fft_analyzer.py` | 6 |
-| Eigenvalues + spectral band energy | `eigen_analyzer.py` | 8 |
+| FFT power spectrum + spectral slope | `fft_analyzer.py` | 4 |
+| Eigenvalues + spectral band energy | `eigen_analyzer.py` | 12 |
 | EXIF metadata | `metadata_extractor.py` | 6 |
 | Noise residual + chroma correlation | `noise_analyzer.py` | 11 |
 | DCT block + JPEG boundary | `dct_analyzer.py` | 8 |
 | Error Level Analysis | `ela_analyzer.py` | 5 |
 | Gradient statistics | `gradient_analyzer.py` | 5 |
-| PatchCraft texture | `patchcraft_analyzer.py` | 7 |
+| PatchCraft texture | `patchcraft_analyzer.py` | 3 |
 | NPR up-sampling residue | `npr_analyzer.py` | 6 |
-| Screenshot forensics (GLCM/LBP/wavelet/chroma/tone) | `screenshot_image_analyzer.py` | 8 |
+| Screenshot forensics (GLCM/LBP/wavelet/chroma/tone) | `screenshot_image_analyzer.py` | 10 |
 | RIGID classical drift | `classifier.py` | 15 |
 
 Every analyzer wraps its math in try/except and returns neutral values on
-failure (0.0 for energies/differences, 1.0 for ratios, 0.5 for scores) so a
-single crashed analyzer cannot poison a batch run or push the classifier toward
-either class.
+failure (0.0 for energies/differences, 1.0 for ratios, 0.5 for scores) to keep the feature vector finite and allow a batch to continue. These defaults
+do not guarantee an unbiased prediction when an analyzer fails.
 
 ---
 
@@ -137,9 +163,12 @@ split, so near-duplicates never leak across train/test. Five generator families
 (`midjourney_7`, `ideogram_3.0`, `imagen_4.0`, `flux_1`, `recraft_v3`) are held
 out of training entirely to measure generalization to unseen generators.
 
-### Stage 1 — derived variants (`src/channels.py`, `scripts/build_derived.py`, `scripts/capture_screenshots.py`)
+### Stage 1 — derived variants (historical build step)
 
-Generates in-the-wild distortions from each base image: Facebook / X / Telegram
+`src/channels.py` is included, but the original `scripts/build_derived.py` and
+`scripts/capture_screenshots.py` orchestration scripts are not. Restore the
+published derived data rather than treating those absent helpers as runnable
+commands. The original pipeline generated in-the-wild distortions from each base image: Facebook / X / Telegram
 recompression, screenshot capture (real browser via Playwright), and two chained
 pipelines (e.g. screenshot then Telegram). Each variant inherits its base's split
 assignment via `splits[base_id]`. All randomness is seeded from the image's own
@@ -241,31 +270,22 @@ FastAPI drag-and-drop UI on port 8000, using `UnifiedDetector` with automatic
 classical fallback. Uploaded images go to a per-request temp file and are deleted
 immediately after the scan — never stored, logged, or used for training. The
 server is hardened (rate limiting, concurrency cap, request-size and pixel-bomb
-guards, security headers); see [SECURITY.md](SECURITY.md) for each control, and
-[DEPLOY.md](DEPLOY.md) for deployment options.
+guards, security headers); see [SECURITY.md](SECURITY.md) for each control.
+Run `python app.py` and open `http://localhost:8000` on your laptop.
+For the smaller classical-only installation, use `requirements-runtime.txt`;
+setup is documented in [README.md](README.md). Server-hosting configurations
+and guides have been removed; CLI, local UI, training, and evaluation remain.
 
 ---
 
-## Analysis Scripts (read-only, reuse the feature cache)
+## Research helpers and committed results
 
-These do not retrain anything; they re-score cached features and write reports.
-They are local helpers (under `scripts/`, gitignored).
-
-```bash
-# Detectability by generator architecture (real-anchored metrics)
-python -m scripts.analyze_families        # -> reports/family_analysis_<date>.{json,md}
-
-# Autoregressive generalization + calibration experiments
-python -m scripts.ar_experiments          # -> reports/ar_experiments_<date>.{json,md}
-
-# AR artifact probe: token-grid periodicity + raster-scan anisotropy
-python -m scripts.ar_artifact_probe       # -> reports/ar_artifact_probe_<date>.md
-
-# Refresh the reproducibility record from live artifacts
-python -m scripts.record_experiment       # -> experiment_v1.json
-```
-
-Findings from these are summarised in [RESEARCH.md](RESEARCH.md).
+The original helpers for family analysis, autoregressive experiments, artifact
+probes, external evaluation, and experiment recording are absent from this
+public checkout. Commands using those `scripts.*` modules are therefore not
+available here. Evaluation and family-analysis reports are retained under
+`reports/`; other original research reports are absent. RESEARCH.md preserves
+the dated findings and identifies that evidence limitation.
 
 ---
 
@@ -276,4 +296,6 @@ split counts, all random seeds, the feature version, the model hyperparameters,
 and the reported metrics. To recreate a reported number: restore `data/` to the
 recorded dataset hash, run `python -m src.train_unified --gpu --n-jobs -1`, then
 `python -m src.evaluate_unified`, and compare against the record. Regenerate the
-record after any retrain with `python -m scripts.record_experiment`.
+record after a retrain only with the original recording helper (not shipped
+here) or a separately reviewed replacement. Do not relabel the committed record
+as a new run merely because a model was retrained.

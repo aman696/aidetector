@@ -10,8 +10,8 @@ Usage:
 The unified model classifies fully-AI images across conditions (clean,
 social-media-compressed, screenshotted, chained). It uses 85 classical
 features + a DINOv2 embedding; without torch it falls back to the 85-feature
-classical model automatically. Training/evaluation details: see CLAUDE.md and
-V2_PROGRESS.md.
+classical model automatically. Training/evaluation details: see WORKFLOW.md;
+the private agent and upgrade notes are not included in this public checkout.
 """
 
 import argparse

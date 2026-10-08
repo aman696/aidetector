@@ -24,8 +24,8 @@ reference baseline but are not used.)
 - Intended use, metrics, limitations, known weaknesses → **[MODEL_CARD.md](MODEL_CARD.md)**
 - Literature review, known failure modes, analysis → **[RESEARCH.md](RESEARCH.md)**
 - Reproducibility record (hashes, seeds, hyperparameters) → **[experiment_v1.json](experiment_v1.json)**
-- Plain-language explanations of every paper used → `paper_notes/` (**local only, gitignored** —
-  if you cloned this from GitHub you will not have it; ask the owner)
+- Plain-language explanations and citation ledger → `paper_notes/` (local-only material,
+  absent from this public checkout; available in the owner's full research repository)
 
 ## 2. Hard rules (non-negotiable)
 
@@ -39,8 +39,9 @@ reference baseline but are not used.)
    change. The owner relies on it to re-learn the project after long gaps.
 5. **The owner reviews everything.** Propose first, get approval, then execute. Do not make
    architectural decisions unilaterally.
-6. Performance numbers (accuracy, etc.) live in **one** place per kind: headline in README.md,
-   details in RESEARCH.md. Do not copy them into other docs — they drift.
+6. `experiment_v1.json` and dated evaluation reports are the numerical source records.
+   Keep headline summaries in README.md and interpretation in RESEARCH.md; other guides
+   should link to those sources rather than maintain duplicate performance tables.
 
 ## 3. Rules for AI agents specifically
 
@@ -63,22 +64,22 @@ reference baseline but are not used.)
 - **Trained models (`models/*.pkl`):** provided as-is under the same MIT terms. They were trained
   on a mixed dataset (see below); no warranty of accuracy. Do not present their output as
   authoritative proof that an image is or is not AI-generated.
-- **Datasets (`data/`, not in the repo):** NOT redistributed and NOT covered by the MIT license.
-  Sources include Unsplash (Unsplash License — free to use, but mass redistribution of unaltered
-  copies is prohibited, which is one reason `data/` is gitignored), personal photos, and outputs
-  of various image generators whose terms differ. The dataset is shared by the owner on
-  request, on a per-case basis.
+- **Datasets (`data/`, absent from this checkout):** NOT covered by the code's MIT license.
+  The recorded real sources are COCO and OpenFake; AI images span 34 generator families.
+  Access is documented in DATASET.md, together with unresolved source/provenance terms.
+  Dataset availability is not a blanket redistribution license for every image.
 - **Papers (`papers/`, not in the repo):** copyright of their authors/publishers; we link to
   arXiv instead of redistributing PDFs.
 
 ## 5. Papers & citations
 
-The papers behind each analyzer are **internal for now** — the owner will add public citations
-in one pass once the ongoing research concludes. Until then, public docs (README etc.) carry
-**no references section**. The full citation ledger — verified arXiv IDs, per-analyzer mapping,
-"inspired by vs. implements" wording requirements, and two unresolved attributions — lives in
-`paper_notes/CITATIONS.md` (local only). If you add a method from a paper, record it there and
-write a note in `paper_notes/` — do not add citations to public docs.
+The complete citation ledger and explanatory notes are not shipped in this public
+checkout. The owner's full research repository contains the per-analyzer mappings,
+"inspired by vs. implements" distinctions, and unresolved attributions. RESEARCH.md
+retains research references; that does not mean all attributions have been reviewed.
+Before adding a method from a paper, obtain the ledger and record the method and
+its explanation there. Do not add new website/public-summary references ahead of
+that citation review.
 
 ## 6. Where to go next
 

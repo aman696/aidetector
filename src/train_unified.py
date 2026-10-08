@@ -8,7 +8,7 @@ Two models are produced from the SAME assembled training matrix:
                              the headline ablation)
 
 The old models/*.pkl are never touched — they were trained on different,
-now-removed data and serve only as a reference baseline (see CLAUDE.md).
+now-removed data and serve only as a reference baseline (see WORKFLOW.md).
 
 Leakage gates (two of the three in the project; the third is the base-level
 split in dataset.py):

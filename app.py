@@ -1,5 +1,5 @@
 """
-Human or AI? — Web Interface (v2 unified model), production-hardened.
+Human or AI? — Local Web Interface (v2 unified model).
 
 FastAPI drag-and-drop UI. Uses the unified v2 detector (classical + DINOv2) with
 automatic classical fallback when torch is absent. Uploaded images are written to
@@ -9,7 +9,7 @@ logged, or used for training.
 Hardening (see SECURITY.md for the rationale of each control):
   - per-IP rate limiting (slowapi) + a global concurrency cap on the expensive
     detection so the box can't be trivially DoS'd;
-  - request-body size limit enforced BEFORE the body is read into memory;
+  - route-level upload-size checks after multipart parsing;
   - real-image + dimension validation (blocks decompression / pixel bombs);
   - blocking CPU work runs in a threadpool, never on the async event loop;
   - security headers (CSP, nosniff, frame-deny, referrer, permissions);
@@ -17,7 +17,6 @@ Hardening (see SECURITY.md for the rationale of each control):
   - API docs disabled unless DEBUG=1.
 
 Run locally:  python app.py            (http://localhost:8000)
-Serve (prod): uvicorn app:app --host 0.0.0.0 --port ${PORT:-7860}
 """
 
 import io
@@ -45,7 +44,7 @@ WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 STATIC_DIR = os.path.join(WEB_DIR, "static")
 
 # --------------------------------------------------------------------------- #
-# Config (overridable via environment for deployment)
+# Config (overridable via environment for local runs)
 # --------------------------------------------------------------------------- #
 DEBUG = os.getenv("DEBUG", "0") == "1"
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", str(10 * 1024 * 1024)))  # 10 MB
@@ -71,7 +70,7 @@ logger = logging.getLogger("humanorai")
 # App + middleware
 # --------------------------------------------------------------------------- #
 def _client_ip(request: Request) -> str:
-    """Real client IP for rate limiting. Behind our reverse proxy (Caddy) the
+    """Client IP for rate limiting. Behind a correctly configured proxy the
     client IP is the first hop of X-Forwarded-For; otherwise the socket peer.
     Only trust XFF because the app is meant to sit behind a trusted proxy."""
     xff = request.headers.get("x-forwarded-for")
@@ -232,8 +231,8 @@ async def detect_image(request: Request, file: UploadFile, mode: str = Form("nor
     if detector is None:
         raise HTTPException(503, "The detector isn't available right now. Please try again shortly.")
 
-    # Reject oversized uploads via Content-Length before reading the body into
-    # memory (the reverse proxy also caps this — defense in depth).
+    # Multipart parsing has already occurred. Check Content-Length before
+    # reading the spooled UploadFile; upstream body caps are deployment-specific.
     cl = request.headers.get("content-length")
     if cl and cl.isdigit() and int(cl) > MAX_FILE_SIZE + 4096:
         raise HTTPException(413, "File too large. Maximum size is 10 MB.")

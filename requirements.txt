@@ -3,15 +3,19 @@ scipy
 opencv-python
 pillow
 scikit-learn
-matplotlib
+joblib  # directly imported for saved model bundles
 pytest
+httpx  # required by FastAPI TestClient
 fastapi
 uvicorn
 python-multipart  # required by FastAPI for image uploads (app.py /api/detect)
 pydantic
+slowapi  # imported by app.py for per-IP rate limiting
+requests  # retained dataset-download helpers
+tqdm  # retained download/processing helpers
 
-# Optional (hybrid v2 embeddings). The repo runs classical-only without these;
-# install for the DINOv2 path: pip install torch timm
+# Hybrid v2 embeddings are included in this full development install. For a
+# lean classical-only runtime, use requirements-runtime.txt without torch/timm.
 torch
 timm
 
@@ -20,5 +24,5 @@ timm
 # pip install --extra-index-url=https://pypi.nvidia.com cuml-cu13
 # cuml-cu13
 
-# Optional: external-dataset fetch for AR research (scripts/fetch_openfake.py). Not needed at runtime.
-datasets>=3.0
+# Optional collection/load-test tools are documented in WORKFLOW.md. The original
+# fetch_openfake.py helper is absent here; no retained source imports datasets.
