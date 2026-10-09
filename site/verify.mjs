@@ -12,7 +12,7 @@ const read = async route => {
 const evaluation=await (await read('/data/evaluation.json')).json();
 const experiment=await (await read('/data/experiment.json')).json();
 const c=createContent(evaluation,experiment,'');
-const routes=[['/','text/html'],['/resources/','text/html'],['/robots.txt','text/plain'],['/sitemap.xml','application/xml'],['/llms.txt','text/plain'],['/favicon.svg','image/svg+xml'],['/opengraph.png','image/png'],...c.resources.entries.map(item=>[item.href,item.type==='JSON'?'application/json':item.type==='MARKDOWN'?'text/markdown':'text/plain'])];
+const routes=[['/','text/html'],['/resources/','text/html'],['/test/','text/html'],['/robots.txt','text/plain'],['/sitemap.xml','application/xml'],['/llms.txt','text/plain'],['/favicon.svg','image/svg+xml'],['/opengraph.png','image/png'],...c.resources.entries.map(item=>[item.href,item.type==='JSON'?'application/json':item.type==='MARKDOWN'?'text/markdown':'text/plain'])];
 const results=[];
 for(const [route,type] of routes) {
   const response=await read(route), actual=response.headers.get('content-type')||'';

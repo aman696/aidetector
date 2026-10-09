@@ -304,11 +304,12 @@ as a new run merely because a model was retrained.
 ## Company website (`site/`)
 
 The public checkout contains the Human or AI static website. It presents product
-direction separately from shipped detector capabilities. Python inference still
-runs on your laptop; the website has no upload endpoint or Pages Functions.
+direction separately from shipped detector capabilities. The full model remains available on your laptop. The optional hosted demo uses
+the existing 85-feature classical model on a free Render service; Cloudflare
+Pages still has no Python endpoint or Pages Functions.
 
 All visitor copy is in `site/content.mjs`; `site/config.mjs` is the single source
-for `DEMO_ENABLED` (currently false). Build from `site/` with Node 24.19.0:
+for `DEMO_ENABLED` (defaults false, enabled through the Pages build environment after verification). Build from `site/` with Node 24.19.0:
 
 ```bash
 SITE_URL=https://your-domain.example npm run build
@@ -326,3 +327,39 @@ existing source files, generates model metadata without copying model weights,
 and adds security headers, hashed assets, sitemap, and robots.txt. It validates
 Cloudflare's 25 MiB per-file and 20,000-file limits. Full configuration, asset URL
 inventory, and post-deploy checks: [site/README.md](site/README.md).
+
+
+### Hosted image-testing demonstration
+
+`demo/api.py` serves the existing `models/classical_v2.pkl` with the original
+`extract_unified(..., skip_embeddings=True)` pipeline. It verifies the model
+hash and feature schema before starting. It never installs or invokes DINOv2 or
+PyTorch; the website labels this distinction and shows the classical benchmark.
+The full unified model and retired v1 bundles are not loaded by this service.
+
+`render.yaml` fixes the service to the free Python plan: build with
+`python -m pip install -r requirements-runtime.txt`, start with
+`python -m uvicorn demo.api:app --host 0.0.0.0 --port $PORT --workers 1 --no-access-log`,
+and use `/healthz`. Set `ALLOWED_ORIGIN` to the company website's HTTPS origin,
+`PYTHON_VERSION=3.12.12`, and BLAS/OMP/MKL thread counts to 1. No local server or
+Docker deployment is required. Free capacity may sleep, become busy, or suspend
+at provider limits; it is a demonstration, not a production inference service.
+
+The service caps files at 1 MiB, decoded images at 1,048,576 pixels and 4,096
+pixels per side, rejects animations, permits one running scan and three requests
+per minute globally, and rejects oversized bodies before multipart parsing.
+Uploads use temporary directories owned by the inference thread. A client
+timeout or disconnect does not free a running scan's slot or delete its image
+prematurely; cleanup happens after the thread exits. No upload bytes, filenames,
+EXIF values, or results are logged or stored by the application.
+
+Enable `DEMO_ENABLED=true` and set `DEMO_API_ORIGIN` in the Pages build environment
+only after a real hosted scan succeeds. The build checks that the configured
+service reports a loaded classical model. `/test/` then offers image uploads,
+estimated AI probability, all 85 measured features grouped into 11 analyzers,
+and a JSON result download. The site's CSP and the API's CORS policy permit
+only the configured origins. All website copy remains in `site/content.mjs`.
+
+Run `python -m pytest tests/test_demo_api.py -q` for model parity, upload boundary,
+origin/rate-limit, and timeout/cleanup checks. These test the actual model; no
+trained parameters or analyzer calculations were changed.

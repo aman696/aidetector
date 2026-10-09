@@ -9,10 +9,17 @@ const repo = path.dirname(site);
 const out = path.resolve(process.env.OUTPUT_DIR || path.join(site,'dist'));
 const evaluation = JSON.parse(await readFile(path.join(repo,'reports/eval_v2_20260615.json'),'utf8'));
 const homepage = await readFile(path.join(out,'index.html'),'utf8');
-assert.equal(DEMO_ENABLED,false,'This release has no hosted detector.');
-assert(homepage.includes('Live demo offline, run it locally'));
+const testPage = await readFile(path.join(out,'test/index.html'),'utf8');
+if (DEMO_ENABLED) {
+  assert(homepage.includes('/test/'));
+  assert(testPage.includes('id="demo-form"'));
+  assert(testPage.includes('This free demo runs the 85-feature classical v2 model.'));
+} else {
+  assert(homepage.includes('Live demo offline, run it locally'));
+  assert(!/<input\b[^>]*type=["']file/i.test(testPage));
+}
 assert(!/<input\b[^>]*type=["']file/i.test(homepage),'An offline demo must not render an upload input.');
-assert(!/<form\b/i.test(homepage),'No backend forms are needed.');
+assert(!/<form\b/i.test(homepage),'The homepage should link to the dedicated test page.');
 assert(homepage.includes((evaluation.unified_overall.accuracy*100).toFixed(1)+'%'));
 assert(homepage.includes(evaluation.unified_overall.auc.toFixed(3)));
 assert(homepage.includes('Three acceptance gates remain unmet.'));

@@ -1,5 +1,5 @@
 // All visitor-facing copy lives here. Measurements come from repository records.
-export function createContent(evaluation, experiment, commands) {
+export function createContent(evaluation, experiment, commands, { demoEnabled = false } = {}) {
   const unified = evaluation.unified_overall;
   const classical = evaluation.classical_overall;
   const n = value => value.toLocaleString('en-US');
@@ -13,14 +13,16 @@ export function createContent(evaluation, experiment, commands) {
     skip: 'Skip to content',
     navigationLabel: 'Main navigation',
     footerNavigationLabel: 'Project links',
-    navigation: [{ label: 'Product', href: '/#project' }, { label: 'Technology', href: '/#method' }, { label: 'Results', href: '/#results' }, { label: 'Resources', href: '/resources/' }],
+    navigation: [...(demoEnabled ? [{ label: 'Test an image', href: '/test/' }] : []), { label: 'Product', href: '/#project' }, { label: 'Technology', href: '/#method' }, { label: 'Results', href: '/#results' }, { label: 'Resources', href: '/resources/' }],
     theme: { label: 'Switch to dark theme', darkLabel: 'Switch to light theme' },
-    navAction: 'Our direction',
+    navAction: demoEnabled ? 'Test an image' : 'Our direction',
+    navActionHref: demoEnabled ? '/test/' : '/#direction',
     hero: {
       eyebrow: 'HUMAN OR AI? / IMAGE INTELLIGENCE',
       title: ['AI image detection.', 'Evidence in view.'],
       description: 'We’re building an image-review product around transparent AI detection. Our starting point is an open source detector that brings image-forensics signals and a learned visual representation into one advisory estimate.',
-      primary: 'Explore the product',
+      primary: demoEnabled ? 'Test an image' : 'Explore the product',
+      primaryHref: demoEnabled ? '/test/' : '#project',
       secondary: 'How it works',
       note: 'An estimate, not proof. Built for exploration, not consequential decisions.',
       figureLabel: 'Inside the detector',
@@ -42,7 +44,7 @@ export function createContent(evaluation, experiment, commands) {
       items: [
         { title: 'A research foundation', text: 'An existing detector combines classical forensic features, a frozen DINOv2 representation, and a calibrated classifier. The code, model records, and evaluations are open to inspection.' },
         { title: 'An understandable result', text: 'The local prototype returns an estimated AI probability and a plain-language explanation. A result is decision support, not a claim of verified authenticity.' },
-        { title: 'A responsible direction', text: 'The product direction is a clearer image-review experience, with uncertainty and known failure cases visible alongside the result. A hosted detection service is not available on this website yet.' }
+        { title: 'A responsible direction', text: demoEnabled ? 'Try the classical model in the live demonstration. The larger DINOv2 model remains available for local use; its benchmark does not describe the smaller hosted demo.' : 'The product direction is a clearer image-review experience, with uncertainty and known failure cases visible alongside the result. A hosted detection service is not available on this website yet.' }
       ]
     },
     direction: {
@@ -54,7 +56,7 @@ export function createContent(evaluation, experiment, commands) {
         { stage: 'EXPLAIN', title: 'Clearer uncertainty', text: 'Make the signals, caveats, and failure cases easier to understand. Keep estimated probability separate from proof of origin.' },
         { stage: 'DEVELOP', title: 'A reliable review workflow', text: 'Develop an accessible product experience around the detector, and validate reliability and image handling before offering hosted inference.' }
       ],
-      note: 'Current stage: open source research prototype. The website shares the project and its direction; it does not process image uploads.'
+      note: demoEnabled ? 'Current stage: open source research prototype with a limited classical-model demonstration. Hosted testing is not a production authenticity service.' : 'Current stage: open source research prototype. The website shares the project and its direction; it does not process image uploads.'
     },
     method: {
       eyebrow: '01 / THE METHOD',
@@ -155,7 +157,50 @@ export function createContent(evaluation, experiment, commands) {
       offline: 'Live demo offline, run it locally',
       description: 'The local browser app accepts still images and returns the model’s probability and explanation. This website does not process or collect image uploads.',
       button: 'See laptop instructions', enabledButton: 'Open live detector',
-      enabledDescription: 'Open the hosted detector to analyze a still image. Review its privacy information and treat the result as an advisory estimate.'
+      enabledDescription: 'Test a still image with our 85-feature classical model. Inspect the estimated AI probability and the measured analyzer features. The larger DINOv2 model runs locally.'
+    },
+    test: {
+      eyebrow: 'LIVE DEMO / CLASSICAL V2', title: 'Put an image to the test.',
+      description: 'Upload a still image to run our actual classical detector and inspect the features behind its estimate.',
+      modelTitle: 'The smaller model, clearly identified.',
+      modelDescription: 'This free demo runs the 85-feature classical v2 model. It does not run the DINOv2 embedding or the full 855-feature unified model.',
+      benchmark: `Classical benchmark: ${percent(classical.accuracy)} accuracy and ${decimal(classical.auc)} ROC-AUC on the same 6,414-row test split. These are evaluation results, not a guarantee for your image.`,
+      limits: 'Still images only. Unfamiliar generators, real artwork, small images, and heavy processing can produce incorrect estimates. Do not use this result as proof or as sole evidence for consequential decisions.',
+      privacyTitle: 'Before you upload',
+      privacy: 'Your image is sent to our demo service on Render. The application uses a temporary copy, removes it when analysis finishes, and does not use uploads for training. The hosting provider processes network requests under its own privacy policy.',
+      privacyLink: 'Render privacy policy', privacyHref: 'https://render.com/privacy',
+      coldStart: 'This is a free demonstration with limited capacity. After inactivity, the service may take about a minute to wake up. Try again if it is busy.',
+      inputLabel: 'Choose a still image', inputHint: 'JPEG, PNG, or WebP · up to 1 MiB and 1,048,576 pixels · single-frame images only. Images are analyzed as uploaded, without automatic resizing.',
+      fileLabel: 'Selected image', analyze: 'Analyze image', analyzing: 'Analyzing…',
+      checking: 'Checking the demonstration service…', ready: 'Ready to analyze.',
+      success: 'Analysis complete. Read the estimate together with its limitations.',
+      probabilityLabel: 'Estimated AI probability', verdictLabel: 'Model classification',
+      realLabel: 'Real', aiLabel: 'AI-generated', modelLabel: 'Classical v2 · 85 features',
+      durationLabel: 'Analysis time', durationUnit: 'seconds',
+      resultNote: 'This is an advisory estimate. The individual feature values below are measurements, not independent authenticity verdicts or probabilities.',
+      featuresTitle: 'Inspect the measured features', featureName: 'Feature', featureValue: 'Measured value',
+      featuresHint: 'All 85 inputs to the classical classifier, grouped by analyzer. Some analyzers return finite defaults when extraction fails.',
+      download: 'Download result JSON', previewAlt: 'Preview of the selected image',
+      errors: {
+        empty: 'Choose an image first.', invalid_type: 'Use a JPEG, PNG, or WebP image.',
+        too_large: 'This demo accepts images up to 1 MiB. Choose a smaller file.',
+        dimensions: 'This image exceeds the demo limit of 1,048,576 pixels or 4,096 pixels on either side. Choose a smaller image.',
+        animated_image: 'Choose a single-frame still image. Animated images are not supported.',
+        invalid_image: 'The file could not be decoded as an image. Choose another JPEG, PNG, or WebP.',
+        busy: 'The free demo is processing another image. Please try again shortly.',
+        rate_limit: 'The free demo has reached its request limit. Wait a minute and try again.',
+        timeout: 'The service is waking up or this scan took too long. Please try again shortly.',
+        origin: 'This website is not allowed to use the demonstration service yet.',
+        analysis_failed: 'The analysis could not finish. Please try a different image.',
+        offline: 'The demo service could not be reached. It may be waking up; please try again in a minute.',
+        invalid_result: 'The service did not return a valid detector result. Please try again later.'
+      },
+      groups: [
+        ['FFT power spectrum',4], ['Eigenvalues + spectral bands',12], ['EXIF metadata',6],
+        ['Noise residuals',11], ['DCT / JPEG statistics',8], ['Error Level Analysis',5],
+        ['Gradient statistics',5], ['PatchCraft texture',3], ['NPR residue',6],
+        ['Screenshot forensics',10], ['Classical perturbation drift',15]
+      ]
     },
     resources: {
       eyebrow: 'PROJECT RESOURCES', title: 'The records behind the result.',
@@ -177,12 +222,12 @@ export function createContent(evaluation, experiment, commands) {
     footer: {
       statement: 'Building an image-review product on open source research. Transparent methods, advisory estimates, and visible limitations.',
       links: [{ label: 'GitHub', href: 'https://github.com/aman696/aidetector' }, { label: 'Model card', href: '/docs/MODEL_CARD.md' }, { label: 'Data & documentation', href: '/resources/' }, { label: 'MIT license', href: '/docs/LICENSE.txt' }],
-      note: 'Fully AI-generated still images only. No trackers. No image uploads on this website.',
+      note: demoEnabled ? 'Fully AI-generated still images only. No trackers. Hosted demo uses the classical model.' : 'Fully AI-generated still images only. No trackers. No image uploads on this website.',
       copyright: 'Human or AI?'
     },
     notFound: { title: 'This page is not here.', description: 'Explore the detector’s method, results, and source records from the homepage.', action: 'Back to the homepage' },
     api: {
-      note: 'Static availability metadata only. The Python detector is not deployed on this website.',
+      note: demoEnabled ? 'Availability metadata. The classical Python demo runs on Render; the main website runs on Cloudflare Pages.' : 'Static availability metadata only. The Python detector is not deployed on this website.',
       incompatibility: 'FastAPI, NumPy, OpenCV, scikit-learn, and PyTorch inference cannot run in the JavaScript/TypeScript Pages Functions runtime.',
       alternatives: ['Run the existing detector locally on a laptop.', 'Host the Python inference API separately and link to that working service.', 'Use a compatible container service; Cloudflare Containers require a separate backend architecture and account setup.']
     }

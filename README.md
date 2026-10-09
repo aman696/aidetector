@@ -1,6 +1,6 @@
 # AI Image Detector
 
-> **Project website: [humanorai.online](https://humanorai.online)** — product direction, methods, benchmark evidence, and limitations. Live demo offline; run the detector on your laptop using the steps below.
+> **Project website: [humanorai.online](https://humanorai.online)** — product direction, methods, benchmark evidence, and limitations. The optional hosted image-testing demo uses the smaller 85-feature classical model; the full DINOv2 model runs on your laptop using the steps below.
 
 The static company website lives in `site/`; see [site/README.md](site/README.md) for the Cloudflare Pages build and verification workflow.
 

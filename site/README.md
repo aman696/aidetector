@@ -1,6 +1,6 @@
 # Human or AI website
 
-Plain HTML, CSS, and JavaScript keep this small static site fast, accessible, and dependency-free. The Python detector remains a separate laptop application.
+Plain HTML, CSS, and JavaScript keep this small static site fast, accessible, and dependency-free. The full Python detector remains available locally; the optional free hosted demo uses its 85-feature classical model.
 
 ## Cloudflare Pages
 
@@ -28,9 +28,9 @@ To keep generated output outside the checkout, set `OUTPUT_DIR` for both the bui
 
 ## Editing
 
-All visitor copy is in `content.mjs`. Metrics are derived from the committed evaluation and experiment JSON records; the laptop commands are extracted verbatim from the root README. Product development priorities are identified as priorities, not completed capabilities. There are no contacts, application-program references, customer claims, or trackers.
+All visitor copy is in `content.mjs`. Metrics are derived from the committed evaluation and experiment JSON records; the laptop commands are extracted verbatim from the root README. Product development priorities are identified as priorities, not completed capabilities. There are no contacts, application-program references, customer claims, or trackers. The dedicated `/test/` upload form is only rendered when a verified demo is enabled.
 
-`config.mjs` has the single `DEMO_ENABLED` flag, currently false. The site then says “Live demo offline, run it locally” and renders no upload widget. Enabling it requires an actual external HTTPS demo in `DEMO_URL`; the build rejects a demo pointing at this static origin.
+`config.mjs` reads the single `DEMO_ENABLED` build flag (false by default). Without it the site says “Live demo offline, run it locally” and renders no upload widget. Set `DEMO_ENABLED=true` with a real HTTPS `DEMO_API_ORIGIN` after a successful scan. The build verifies `/healthz` and rejects an unavailable or incorrect model. The company website remains on Cloudflare; the demo runs on Render’s free Python service described in WORKFLOW.md and `render.yaml`.
 
 ## Runtime and public files
 
@@ -53,7 +53,7 @@ Public source documents and JSON use repository-relative symlinks under `public/
 | `/docs/SECURITY.md` | Root laptop application's security documentation |
 | `/docs/LICENSE.txt` | Root MIT license |
 
-Other routes: `/`, `/resources/`, `/404.html`, `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/favicon.svg`, `/opengraph.png`, and three content-hashed assets under `/assets/`. `_headers` supplies CSP and security headers, explicit document/data types, and immutable caching for hashed assets. HTML uses `no-transform` to prevent automatic proxy script injection. Keep domain-level Web Analytics disabled. No redirects are needed. A real `404.html` prevents Pages from pretending unknown endpoints are working SPA routes.
+Other routes: `/`, `/resources/`, `/test/`, `/404.html`, `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/favicon.svg`, `/opengraph.png`, and three content-hashed assets under `/assets/`. `_headers` supplies CSP and security headers, explicit document/data types, and immutable caching for hashed assets. HTML uses `no-transform` to prevent automatic proxy script injection. Keep domain-level Web Analytics disabled. The CSP allows the configured demo origin only when enabled. No redirects are needed. A real `404.html` prevents Pages from pretending unknown endpoints are working SPA routes.
 
 ## Post-deploy verification
 
@@ -61,5 +61,5 @@ Other routes: `/`, `/resources/`, `/404.html`, `/robots.txt`, `/sitemap.xml`, `/
 2. Confirm an unknown route returns 404 and `POST /api/detect` returns 404 or Pages' native 405 (method not allowed), never a successful inference response.
 3. Test theme switching, keyboard navigation, benchmark condition controls, command copying, and responsive layout.
 4. Check browser console for errors, CSP violations, failed requests, and mixed content.
-5. Run mobile Lighthouse on both HTML routes. Require at least 95 in performance, accessibility, best practices, and SEO.
-6. Verify custom-domain HTTPS, canonical URLs, sitemap, social metadata, and the offline demo message.
+5. Run mobile Lighthouse on all three HTML routes. Require at least 95 in performance, accessibility, best practices, and SEO.
+6. Verify custom-domain HTTPS, canonical URLs, sitemap, social metadata, and the appropriate enabled/offline demo state. Send a real image to the enabled API and compare its probability with the local classical model; also verify rejection of invalid/oversized images and allowed-origin CORS.
