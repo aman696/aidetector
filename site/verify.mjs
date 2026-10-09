@@ -35,7 +35,8 @@ for(const [route,type] of routes) {
 }
 for(const route of ['/this-route-does-not-exist','/api/detect']) {
   const response=await fetch(origin+route,{method:route==='/api/detect'?'POST':'GET',signal:AbortSignal.timeout(20000)});
-  assert.equal(response.status,404,`${route}: expected an honest 404`);
-  results.push({route,status:response.status,expected:404});
+  const expected=route==='/api/detect'?[404,405]:[404];
+  assert(expected.includes(response.status),`${route}: expected ${expected.join(' or ')}, received ${response.status}`);
+  results.push({route,status:response.status,expected});
 }
 console.log(JSON.stringify({origin,verified_at:new Date().toISOString(),passed:true,results},null,2));

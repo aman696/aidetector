@@ -58,7 +58,7 @@ Other routes: `/`, `/resources/`, `/404.html`, `/robots.txt`, `/sitemap.xml`, `/
 ## Post-deploy verification
 
 1. Run `node verify.mjs` against the custom domain: every route, static document/data file, and hashed asset must return 200 with the correct content type and security headers.
-2. Confirm an unknown route and `POST /api/detect` return 404.
+2. Confirm an unknown route returns 404 and `POST /api/detect` returns 404 or Pages' native 405 (method not allowed), never a successful inference response.
 3. Test theme switching, keyboard navigation, benchmark condition controls, command copying, and responsive layout.
 4. Check browser console for errors, CSP violations, failed requests, and mixed content.
 5. Run mobile Lighthouse on both HTML routes. Require at least 95 in performance, accessibility, best practices, and SEO.
