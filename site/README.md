@@ -53,7 +53,7 @@ Public source documents and JSON use repository-relative symlinks under `public/
 | `/docs/SECURITY.md` | Root laptop application's security documentation |
 | `/docs/LICENSE.txt` | Root MIT license |
 
-Other routes: `/`, `/resources/`, `/404.html`, `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/favicon.svg`, `/opengraph.png`, and three content-hashed assets under `/assets/`. `_headers` supplies CSP and security headers, explicit document/data types, and immutable caching for hashed assets. No redirects are needed. A real `404.html` prevents Pages from pretending unknown endpoints are working SPA routes.
+Other routes: `/`, `/resources/`, `/404.html`, `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/favicon.svg`, `/opengraph.png`, and three content-hashed assets under `/assets/`. `_headers` supplies CSP and security headers, explicit document/data types, and immutable caching for hashed assets. HTML uses `no-transform` to prevent automatic proxy script injection. Keep domain-level Web Analytics disabled. No redirects are needed. A real `404.html` prevents Pages from pretending unknown endpoints are working SPA routes.
 
 ## Post-deploy verification
 
