@@ -34,7 +34,7 @@ All visitor copy is in `content.mjs`. Metrics are derived from the committed eva
 
 ## Runtime and public files
 
-`app.py` uses Python FastAPI, NumPy, SciPy, OpenCV, Pillow, scikit-learn, and joblib, with optional PyTorch/timm for the full detector. It cannot execute in Pages Functions' JavaScript/TypeScript Workers runtime. There is no `/functions` directory, inference endpoint, or model weight in the deployment.
+`app.py` uses Python FastAPI, NumPy, SciPy, OpenCV, Pillow, scikit-learn, and joblib, with optional PyTorch/timm for the full detector. It cannot execute in Pages Functions' JavaScript/TypeScript Workers runtime. `functions/api/[route].js` is a JavaScript Pages Function that proxies `GET /api/healthz` and `POST /api/detect` to the Render service; it performs no Python inference. `server/demo-proxy.mjs` contains its bounded forwarding logic. No model weight is deployed on Pages. Set `SITE_URL`, `DEMO_API_ORIGIN`, and `DEMO_ENABLED` as runtime text variables as well as build variables. `_routes.json` restricts Function invocation to those two routes.
 
 The full unified model is 34,366,149 bytes (32.77 MiB), exceeding Pages' 25 MiB per-file limit. Metadata ships instead. The build validates every asset and the free-plan 20,000-file ceiling. The classical-only demo uses a separately hosted Python API on Render. Hosting the full model would require a larger external service or a separately designed Cloudflare Containers service; it remains available on a laptop. A normal Worker alone cannot run the existing Python dependencies.
 
@@ -53,12 +53,12 @@ Public source documents and JSON use repository-relative symlinks under `public/
 | `/docs/SECURITY.md` | Root laptop application's security documentation |
 | `/docs/LICENSE.txt` | Root MIT license |
 
-Other routes: `/`, `/resources/`, `/test/`, `/404.html`, `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/favicon.svg`, `/opengraph.png`, and four content-hashed assets under `/assets/`. `_headers` supplies CSP and security headers, explicit document/data types, and immutable caching for hashed assets. HTML uses `no-transform` to prevent automatic proxy script injection. Keep domain-level Web Analytics disabled. The CSP allows the configured demo origin only when enabled. No redirects are needed. A real `404.html` prevents Pages from pretending unknown endpoints are working SPA routes.
+Other routes: `/`, `/resources/`, `/test/`, `/404.html`, `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/favicon.svg`, `/opengraph.png`, and four content-hashed assets under `/assets/`. `_headers` supplies CSP and security headers, explicit document/data types, and immutable caching for hashed assets. HTML uses `no-transform` to prevent automatic proxy script injection. Keep domain-level Web Analytics disabled. Document CSP permits only same-origin connections. It is detached from hashed script/style assets. The browser uses the same-origin API proxy and retries health checks during a cold start; uploads are never automatically replayed. No redirects are needed. A real `404.html` prevents Pages from pretending unknown endpoints are working SPA routes.
 
 ## Post-deploy verification
 
 1. Run `node verify.mjs` against the custom domain: every route, static document/data file, and hashed asset must return 200 with the correct content type and security headers.
-2. Confirm an unknown route returns 404 and `POST /api/detect` returns 404 or Pages' native 405 (method not allowed), never a successful inference response.
+2. Confirm an unknown route returns 404. When enabled, `GET /api/healthz` must return JSON with a loaded classical model; a malformed `POST /api/detect` must return 400. When disabled, both demo routes return 503. Send a real image through `/api/detect` and confirm its result. Run `npm test` to check proxy boundaries, origin restrictions, credential stripping, and upstream failure handling.
 3. Test theme switching, keyboard navigation, benchmark condition controls, command copying, and responsive layout.
 4. Check browser console for errors, CSP violations, failed requests, and mixed content.
 5. Run mobile Lighthouse on all three HTML routes. Require at least 95 in performance, accessibility, best practices, and SEO.

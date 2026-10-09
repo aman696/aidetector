@@ -11,6 +11,7 @@ const read = async route => {
 };
 const evaluation=await (await read('/data/evaluation.json')).json();
 const experiment=await (await read('/data/experiment.json')).json();
+const availability=await (await read('/data/api.json')).json();
 const c=createContent(evaluation,experiment,'');
 const routes=[['/','text/html'],['/resources/','text/html'],['/test/','text/html'],['/robots.txt','text/plain'],['/sitemap.xml','application/xml'],['/llms.txt','text/plain'],['/favicon.svg','image/svg+xml'],['/opengraph.png','image/png'],...c.resources.entries.map(item=>[item.href,item.type==='JSON'?'application/json':item.type==='MARKDOWN'?'text/markdown':'text/plain'])];
 const results=[];
@@ -28,14 +29,29 @@ for(const [route,type] of routes) {
       const file=await read(asset), assetType=asset.endsWith('.css')?'text/css':/javascript/;
       assert(typeof assetType==='string'?(file.headers.get('content-type')||'').includes(assetType):assetType.test(file.headers.get('content-type')||''),`${asset}: wrong content type`);
       assert((file.headers.get('cache-control')||'').includes('immutable'),`${asset}: missing immutable caching`);
+      assert(!file.headers.has('content-security-policy'),`${asset}: document CSP must not be attached to script/style assets`);
       results.push({route:asset,status:file.status,content_type:file.headers.get('content-type')});
     }
   }
   results.push({route,status:response.status,content_type:actual});
 }
+if (availability.demo_enabled) {
+  let response;
+  const deadline = Date.now() + 120000;
+  do {
+    response=await fetch(origin+'/api/healthz',{signal:AbortSignal.timeout(30000)});
+    if (response.ok) break;
+    await new Promise(resolve=>setTimeout(resolve,3000));
+  } while (Date.now() < deadline);
+  assert.equal(response.status,200,'Same-origin demo health must return 200.');
+  assert((response.headers.get('content-type')||'').includes('application/json'));
+  const health=await response.json();
+  assert(health.model_loaded && health.method==='classical_v2' && health.features===85);
+  results.push({route:'/api/healthz',status:200,content_type:response.headers.get('content-type')});
+}
 for(const route of ['/this-route-does-not-exist','/api/detect']) {
   const response=await fetch(origin+route,{method:route==='/api/detect'?'POST':'GET',signal:AbortSignal.timeout(20000)});
-  const expected=route==='/api/detect'?[404,405]:[404];
+  const expected=route==='/api/detect'?(availability.demo_enabled?[400]:[503]):[404];
   assert(expected.includes(response.status),`${route}: expected ${expected.join(' or ')}, received ${response.status}`);
   results.push({route,status:response.status,expected});
 }

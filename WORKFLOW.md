@@ -306,7 +306,9 @@ as a new run merely because a model was retrained.
 The public checkout contains the Human or AI static website. It presents product
 direction separately from shipped detector capabilities. The full model remains available on your laptop. The optional hosted demo uses
 the existing 85-feature classical model on a free Render service; Cloudflare
-Pages still has no Python endpoint or Pages Functions.
+Python inference still runs on Render. A JavaScript Pages Function forwards only
+`GET /api/healthz` and `POST /api/detect` to that service, so browsers make
+same-origin requests to the company domain.
 
 All visitor copy is in `site/content.mjs`; `site/config.mjs` is the single source
 for `DEMO_ENABLED` (defaults false, enabled through the Pages build environment after verification). Build from `site/` with Node 24.19.0:
@@ -370,8 +372,21 @@ Enable `DEMO_ENABLED=true` and set `DEMO_API_ORIGIN` in the Pages build environm
 only after a real hosted scan succeeds. The build checks that the configured
 service reports a loaded classical model. `/test/` then offers image uploads,
 estimated AI probability, all 85 measured features grouped into 11 analyzers,
-and a JSON result download. The site's CSP and the API's CORS policy permit
-only the configured origins. All website copy remains in `site/content.mjs`.
+and a JSON result download. The browser calls `/api/healthz` and `/api/detect`
+on the company domain. `site/functions/api/[route].js` imports the bounded
+proxy in `site/server/demo-proxy.mjs`; it forwards only those two fixed routes
+to `DEMO_API_ORIGIN`, strips credentials, checks request origins and body sizes,
+and returns JSON for cold-start failures. It does not execute Python or store
+uploads. Runtime variables `SITE_URL`, `DEMO_API_ORIGIN`, and `DEMO_ENABLED`
+must be available to the Pages Function. `_routes.json` limits Function
+invocations to those two routes; static pages and assets remain static.
+
+Health checks retry automatically for up to two minutes while Render wakes up.
+Inference uploads are never automatically replayed. Document CSP permits only
+same-origin connections; it is detached from hashed script/style assets to
+avoid applying document restrictions to developer-tool source fetches. All
+website copy remains in `site/content.mjs`. Run `npm test` from `site/` for the
+proxy's forwarding, origin, boundary, upstream failure, and response checks.
 
 Run `python -m pytest tests/test_demo_api.py -q` for model parity, upload boundary,
 origin/rate-limit, and timeout/cleanup checks. These test the actual model; no

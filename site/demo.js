@@ -1,7 +1,6 @@
 const root = document.querySelector('[data-demo]');
 if (root) {
   const copy = JSON.parse(root.dataset.demoCopy);
-  const origin = root.dataset.apiOrigin;
   const form = root.querySelector('form');
   const input = root.querySelector('input');
   const submit = form.querySelector('button');
@@ -112,13 +111,28 @@ if (root) {
     const timer = setTimeout(()=>controller.abort(),180000);
     try {
       const upload = await prepareUpload(input.files[0]);
-      status.textContent = copy.checking;
-      const health = await fetch(origin+'/healthz',{signal:controller.signal,cache:'no-store',credentials:'omit'});
-      const ready = await health.json();
-      if (!health.ok || !ready.model_loaded || ready.method !== 'classical_v2') throw new Error('offline');
+      const deadline = Date.now() + 120000;
+      let ready = false;
+      while (!ready) {
+        status.textContent = copy.checking;
+        try {
+          const health = await fetch('/api/healthz',{signal:controller.signal,cache:'no-store',credentials:'omit'});
+          const response = await health.json();
+          ready = health.ok && response.model_loaded && response.method === 'classical_v2' && response.features === 85;
+        } catch (exception) { if (controller.signal.aborted) throw exception; }
+        if (!ready) {
+          if (Date.now() >= deadline) throw new Error('offline');
+          status.textContent = copy.waking;
+          await new Promise((resolve,reject)=>{
+            const abort = () => { clearTimeout(delay); reject(new DOMException('Aborted','AbortError')); };
+            const delay = setTimeout(()=>{controller.signal.removeEventListener('abort',abort);resolve();},3000);
+            controller.signal.addEventListener('abort',abort,{once:true});
+          });
+        }
+      }
       status.textContent = copy.analyzing;
       const body = new FormData(); body.append('file',upload.file);
-      const response = await fetch(origin+'/api/detect',{method:'POST',body,signal:controller.signal,credentials:'omit'});
+      const response = await fetch('/api/detect',{method:'POST',body,signal:controller.signal,credentials:'omit'});
       const data = await response.json();
       if (!response.ok) throw new Error(typeof data.detail==='string'?data.detail:response.status===429?'rate_limit':'analysis_failed');
       if (!validResult(data)) throw new Error('invalid_result');
