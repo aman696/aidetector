@@ -1,6 +1,8 @@
 # AI Image Detector
 
-> **Live demo: [humanorai.online](https://humanorai.online)** — free, private (images are deleted right after scanning), no sign-up.
+> **Project website: [humanorai.online](https://humanorai.online)** — product direction, methods, benchmark evidence, and limitations. Live demo offline; run the detector on your laptop using the steps below.
+
+The static company website lives in `site/`; see [site/README.md](site/README.md) for the Cloudflare Pages build and verification workflow.
 
 Detects whether a still image was **fully generated** by a text-to-image model.
 It combines classical image-forensics features (FFT power spectrum, colour-covariance

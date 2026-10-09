@@ -22,8 +22,8 @@ reference baseline. They are not loaded by `main.py` or `app.py`.
 
 ## Public-checkout scope
 
-This public checkout has 89 tracked files, including six legacy collection
-scripts. Existing ignore rules are preserved; no files were untracked or ignored
+This public checkout retains six legacy collection scripts and adds the static
+company website under `site/`. Existing ignore rules are preserved; no files were untracked or ignored
 as a cleanup shortcut. Models and committed evaluation/family-analysis reports
 are retained unchanged.
 
@@ -299,3 +299,30 @@ recorded dataset hash, run `python -m src.train_unified --gpu --n-jobs -1`, then
 record after a retrain only with the original recording helper (not shipped
 here) or a separately reviewed replacement. Do not relabel the committed record
 as a new run merely because a model was retrained.
+
+
+## Company website (`site/`)
+
+The public checkout contains the Human or AI static website. It presents product
+direction separately from shipped detector capabilities. Python inference still
+runs on your laptop; the website has no upload endpoint or Pages Functions.
+
+All visitor copy is in `site/content.mjs`; `site/config.mjs` is the single source
+for `DEMO_ENABLED` (currently false). Build from `site/` with Node 24.19.0:
+
+```bash
+SITE_URL=https://your-domain.example npm run build
+npm run check
+node verify.mjs https://your-domain.example
+```
+
+Cloudflare Pages: GitHub repo `aman696/aidetector`, branch `master`, root `site`,
+build command `node build.mjs`, output `dist`. Set `SITE_URL` to the chosen HTTPS
+origin and `NODE_VERSION=24.19.0`. The website's custom domain is humanorai.online.
+No domain is embedded in the site renderer.
+
+The build copies public evaluation records and selected documentation from their
+existing source files, generates model metadata without copying model weights,
+and adds security headers, hashed assets, sitemap, and robots.txt. It validates
+Cloudflare's 25 MiB per-file and 20,000-file limits. Full configuration, asset URL
+inventory, and post-deploy checks: [site/README.md](site/README.md).
