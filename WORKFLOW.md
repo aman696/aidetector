@@ -345,8 +345,21 @@ and use `/healthz`. Set `ALLOWED_ORIGIN` to the company website's HTTPS origin,
 Docker deployment is required. Free capacity may sleep, become busy, or suspend
 at provider limits; it is a demonstration, not a production inference service.
 
-The service caps files at 1 MiB, decoded images at 1,048,576 pixels and 4,096
-pixels per side, rejects animations, permits one running scan and three requests
+The website accepts larger original images without a file-size or pixel-count
+restriction in the image picker. When an image exceeds the inference service
+boundaries, the browser prepares a JPEG copy with a longest side of at most
+1,024 pixels, removes metadata, and composites transparency over white. Images
+already within the boundaries are sent unchanged. The interface discloses
+preparation before upload and in the result; the JSON download records original
+and analyzed dimensions/bytes and whether resizing and re-encoding occurred.
+Preparation changes forensic signals and is not covered specifically by the
+recorded benchmark. Browser decoding and memory still impose practical limits.
+Animated PNG and WebP are rejected before preparation.
+
+The service retains its internal safety boundaries of 1 MiB, 1,048,576 decoded
+pixels and 4,096 pixels per side to protect the free 512 MiB instance. These
+boundaries apply to the prepared upload, rather than the original chosen image.
+It rejects animations, permits one running scan and three requests
 per minute globally, and rejects oversized bodies before multipart parsing.
 Uploads use temporary directories owned by the inference thread. A client
 timeout or disconnect does not free a running scan's slot or delete its image
