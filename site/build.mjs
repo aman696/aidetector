@@ -35,8 +35,11 @@ await rm(out, { recursive: true, force: true });
 await mkdir(path.join(out, 'assets'), { recursive: true });
 const digest = text => createHash('sha256').update(text).digest('hex').slice(0, 12);
 const assets = {};
+// Include the delivery-policy revision in asset bytes to replace cached headers
+// at immutable URLs when document CSP is detached from script/style responses.
+const assetPolicy = Buffer.from('/* Asset policy v2: document CSP is supplied on HTML responses. */\n');
 for (const [key, filename, extension] of [['css','styles.css','css'],['js','client.js','js'],['theme','theme.js','js'],['demo','demo.js','js']]) {
-  const source = await readFile(path.join(site, filename));
+  const source = Buffer.concat([assetPolicy,await readFile(path.join(site, filename))]);
   const target = `/assets/${key}.${digest(source)}.${extension}`;
   assets[key] = target;
   await writeFile(path.join(out, target), source);
