@@ -36,7 +36,7 @@ All visitor copy is in `content.mjs`. Metrics are derived from the committed eva
 
 `app.py` uses Python FastAPI, NumPy, SciPy, OpenCV, Pillow, scikit-learn, and joblib, with optional PyTorch/timm for the full detector. It cannot execute in Pages Functions' JavaScript/TypeScript Workers runtime. There is no `/functions` directory, inference endpoint, or model weight in the deployment.
 
-The full unified model is 34,366,149 bytes (32.77 MiB), exceeding Pages' 25 MiB per-file limit. Metadata ships instead. The build validates every asset and the free-plan 20,000-file ceiling. Future inference options are a separately hosted Python API, a separately designed Cloudflare Containers service, or the current laptop-only workflow. A normal Worker alone cannot run the existing Python dependencies.
+The full unified model is 34,366,149 bytes (32.77 MiB), exceeding Pages' 25 MiB per-file limit. Metadata ships instead. The build validates every asset and the free-plan 20,000-file ceiling. The classical-only demo uses a separately hosted Python API on Render. Hosting the full model would require a larger external service or a separately designed Cloudflare Containers service; it remains available on a laptop. A normal Worker alone cannot run the existing Python dependencies.
 
 Public source documents and JSON use repository-relative symlinks under `public/`. The build dereferences them so deployment receives ordinary files, preserving one source of truth:
 
@@ -53,7 +53,7 @@ Public source documents and JSON use repository-relative symlinks under `public/
 | `/docs/SECURITY.md` | Root laptop application's security documentation |
 | `/docs/LICENSE.txt` | Root MIT license |
 
-Other routes: `/`, `/resources/`, `/test/`, `/404.html`, `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/favicon.svg`, `/opengraph.png`, and three content-hashed assets under `/assets/`. `_headers` supplies CSP and security headers, explicit document/data types, and immutable caching for hashed assets. HTML uses `no-transform` to prevent automatic proxy script injection. Keep domain-level Web Analytics disabled. The CSP allows the configured demo origin only when enabled. No redirects are needed. A real `404.html` prevents Pages from pretending unknown endpoints are working SPA routes.
+Other routes: `/`, `/resources/`, `/test/`, `/404.html`, `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/favicon.svg`, `/opengraph.png`, and four content-hashed assets under `/assets/`. `_headers` supplies CSP and security headers, explicit document/data types, and immutable caching for hashed assets. HTML uses `no-transform` to prevent automatic proxy script injection. Keep domain-level Web Analytics disabled. The CSP allows the configured demo origin only when enabled. No redirects are needed. A real `404.html` prevents Pages from pretending unknown endpoints are working SPA routes.
 
 ## Post-deploy verification
 

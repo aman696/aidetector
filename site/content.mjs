@@ -54,7 +54,7 @@ export function createContent(evaluation, experiment, commands, { demoEnabled = 
       items: [
         { stage: 'EVALUATE', title: 'Broader testing', text: 'Address the recorded gaps on unfamiliar generators and non-photographic real images, and measure uncertainty at the base-image level.' },
         { stage: 'EXPLAIN', title: 'Clearer uncertainty', text: 'Make the signals, caveats, and failure cases easier to understand. Keep estimated probability separate from proof of origin.' },
-        { stage: 'DEVELOP', title: 'A reliable review workflow', text: 'Develop an accessible product experience around the detector, and validate reliability and image handling before offering hosted inference.' }
+        { stage: 'DEVELOP', title: 'A reliable review workflow', text: demoEnabled ? 'Validate the limited demo’s reliability and image handling before developing a production hosted service.' : 'Develop an accessible product experience around the detector, and validate reliability and image handling before offering hosted inference.' }
       ],
       note: demoEnabled ? 'Current stage: open source research prototype with a limited classical-model demonstration. Hosted testing is not a production authenticity service.' : 'Current stage: open source research prototype. The website shares the project and its direction; it does not process image uploads.'
     },
@@ -211,7 +211,7 @@ export function createContent(evaluation, experiment, commands, { demoEnabled = 
         { label: 'Experiment record', description: 'Dataset provenance, seeds, hyperparameters, feature counts, and model hashes.', href: '/data/experiment.json', type: 'JSON' },
         { label: 'Generator-family analysis', description: 'Dated, real-anchored family and architecture comparisons.', href: '/data/family-analysis.json', type: 'JSON' },
         { label: 'Model metadata', description: 'Bundle sizes and hashes. Models remain in the repository and are excluded from this static site.', href: '/data/model-metadata.json', type: 'JSON' },
-        { label: 'API availability', description: 'Local Python API routes and their runtime requirements; no inference API is deployed here.', href: '/data/api.json', type: 'JSON' },
+        { label: 'API availability', description: demoEnabled ? 'Runtime, hosted classical-model details, and the configured API origin.' : 'Local Python API routes and their runtime requirements; no inference API is deployed here.', href: '/data/api.json', type: 'JSON' },
         { label: 'Model card', description: 'Intended use, known weaknesses, out-of-scope uses, and evaluation caveats.', href: '/docs/MODEL_CARD.md', type: 'MARKDOWN' },
         { label: 'Research notes', description: 'Project methodology, measured failure modes, and historical research context.', href: '/docs/RESEARCH.md', type: 'MARKDOWN' },
         { label: 'Dataset guide', description: 'Recorded sources, access, provenance, and unresolved source terms.', href: '/docs/DATASET.md', type: 'MARKDOWN' },

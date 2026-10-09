@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DEMO_ENABLED } from './config.mjs';
 
 const site = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.dirname(site);
@@ -10,6 +9,7 @@ const out = path.resolve(process.env.OUTPUT_DIR || path.join(site,'dist'));
 const evaluation = JSON.parse(await readFile(path.join(repo,'reports/eval_v2_20260615.json'),'utf8'));
 const homepage = await readFile(path.join(out,'index.html'),'utf8');
 const testPage = await readFile(path.join(out,'test/index.html'),'utf8');
+const { demo_enabled: DEMO_ENABLED } = JSON.parse(await readFile(path.join(out,'data/api.json'),'utf8'));
 if (DEMO_ENABLED) {
   assert(homepage.includes('/test/'));
   assert(testPage.includes('id="demo-form"'));
@@ -60,4 +60,4 @@ assert(count<=20000,'Pages free-plan file count exceeded.');
 for(const [source,target] of [['reports/eval_v2_20260615.json','data/evaluation.json'],['experiment_v1.json','data/experiment.json'],['reports/family_analysis_20260615.json','data/family-analysis.json']]) {
   assert((await readFile(path.join(repo,source))).equals(await readFile(path.join(out,target))),`Evidence was changed: ${source}`);
 }
-console.log(`PASS: ${count} files / ${total} bytes; routes, links, evidence copies, README commands, disabled demo, metadata, Pages limits.`);
+console.log(`PASS: ${count} files / ${total} bytes; routes, links, evidence copies, README commands, ${DEMO_ENABLED ? 'enabled' : 'disabled'} demo, metadata, Pages limits.`);
